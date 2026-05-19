@@ -6,395 +6,177 @@
 <title>ForTheStreetGeeks</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#f0ede8; font-family:'DM Sans',sans-serif; overflow:hidden; user-select:none; cursor:default; }
+  #canvas { display:block; position:absolute; top:0; left:0; }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: #f0ede8;
-    font-family: 'DM Sans', sans-serif;
-    overflow: hidden;
-    user-select: none;
-    cursor: default;
-  }
-
-  #canvas {
-    display: block;
-    position: absolute;
-    top: 0; left: 0;
-  }
-
-  /* ── LEFT PANEL ── */
   #panel {
-    position: fixed;
-    left: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: #fff;
-    border-radius: 14px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
-    padding: 14px 10px;
-    width: 180px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    z-index: 100;
-    max-height: 90vh;
-    overflow-y: auto;
+    position:fixed; left:16px; top:50%; transform:translateY(-50%);
+    background:#fff; border-radius:14px;
+    box-shadow:0 4px 24px rgba(0,0,0,0.10),0 1px 4px rgba(0,0,0,0.06);
+    padding:14px 10px; width:190px;
+    display:flex; flex-direction:column; gap:5px;
+    z-index:100; max-height:90vh; overflow-y:auto;
   }
-
-  #panel::-webkit-scrollbar { width: 4px; }
-  #panel::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
-
+  #panel::-webkit-scrollbar{width:4px;}
+  #panel::-webkit-scrollbar-thumb{background:#ddd;border-radius:4px;}
   .panel-title {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    font-weight: 500;
-    color: #aaa;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 2px 6px 6px;
-    border-bottom: 1px solid #f0f0f0;
-    margin-bottom: 2px;
+    font-family:'DM Mono',monospace; font-size:10px; font-weight:500;
+    color:#aaa; text-transform:uppercase; letter-spacing:0.08em;
+    padding:2px 6px 6px; border-bottom:1px solid #f0f0f0; margin-bottom:2px;
   }
-
   .road-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 8px;
-    border-radius: 8px;
-    border: 1.5px solid transparent;
-    background: transparent;
-    cursor: pointer;
-    transition: all 0.12s;
-    text-align: left;
-    width: 100%;
+    display:flex; align-items:center; gap:8px; padding:6px 8px;
+    border-radius:8px; border:1.5px solid transparent;
+    background:transparent; cursor:pointer; transition:all 0.12s;
+    text-align:left; width:100%;
   }
-
-  .road-btn:hover { background: #f7f7f7; }
-
-  .road-btn.active {
-    background: #e8f0fe;
-    border-color: #4a80f5;
+  .road-btn:hover{background:#f7f7f7;}
+  .road-btn.active{background:#e8f0fe;border-color:#4a80f5;}
+  .road-btn .preview{width:36px;height:22px;flex-shrink:0;border-radius:3px;overflow:hidden;}
+  .road-btn .label{font-size:11px;font-weight:500;color:#333;line-height:1.3;flex:1;}
+  .road-btn .key-badge {
+    font-family:'DM Mono',monospace; font-size:9px; color:#bbb;
+    background:#f5f5f5; border-radius:4px; padding:1px 4px; flex-shrink:0;
   }
+  .road-btn.active .key-badge{background:#c8d8fc;color:#4a80f5;}
 
-  .road-btn .preview {
-    width: 36px;
-    height: 22px;
-    flex-shrink: 0;
-    border-radius: 3px;
-    overflow: hidden;
-    position: relative;
-  }
-
-  .road-btn .label {
-    font-size: 11px;
-    font-weight: 500;
-    color: #333;
-    line-height: 1.3;
-  }
-
-  /* ── TOP BAR ── */
   #topbar {
-    position: fixed;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #fff;
-    border-radius: 999px;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.10);
-    padding: 8px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    z-index: 100;
-    font-size: 12px;
-    color: #555;
-    font-family: 'DM Mono', monospace;
+    position:fixed; top:16px; left:50%; transform:translateX(-50%);
+    background:#fff; border-radius:999px;
+    box-shadow:0 2px 16px rgba(0,0,0,0.10);
+    padding:8px 20px; display:flex; align-items:center; gap:16px;
+    z-index:100; font-size:12px; color:#555; font-family:'DM Mono',monospace;
+    white-space:nowrap;
   }
-
-  #topbar .mode-label {
-    font-weight: 500;
-    color: #222;
-    font-size: 12px;
-  }
-
-  #topbar .hint {
-    color: #aaa;
-    font-size: 11px;
-  }
-
+  #topbar .mode-label{font-weight:500;color:#222;font-size:12px;}
+  #topbar .hint{color:#aaa;font-size:11px;}
   .mode-pill {
-    background: #f0f0f0;
-    border-radius: 999px;
-    padding: 3px 12px;
-    font-size: 11px;
-    font-weight: 500;
-    color: #666;
-    transition: all 0.15s;
+    background:#f0f0f0; border-radius:999px; padding:3px 12px;
+    font-size:11px; font-weight:500; color:#666; transition:all 0.15s;
   }
+  .mode-pill.build{background:#4a80f5;color:#fff;}
 
-  .mode-pill.build {
-    background: #4a80f5;
-    color: #fff;
-  }
-
-  .mode-pill.curve {
-    background: #f5a623;
-    color: #fff;
-  }
-
-  /* ── STREET NAME INPUT ── */
   #nameInput {
-    position: fixed;
-    display: none;
-    z-index: 200;
-    background: #fff;
-    border: 1.5px solid #4a80f5;
-    border-radius: 8px;
-    padding: 6px 10px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
-    outline: none;
-    box-shadow: 0 4px 16px rgba(74,128,245,0.15);
-    width: 160px;
+    position:fixed; display:none; z-index:200;
+    background:#fff; border:1.5px solid #4a80f5; border-radius:8px;
+    padding:6px 10px; font-family:'DM Sans',sans-serif; font-size:13px;
+    outline:none; box-shadow:0 4px 16px rgba(74,128,245,0.15); width:180px;
   }
-
-  /* ── TOAST ── */
   #toast {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: #1a1a1a;
-    color: #fff;
-    padding: 8px 18px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-family: 'DM Mono', monospace;
-    opacity: 0;
-    transition: all 0.2s;
-    pointer-events: none;
-    z-index: 300;
-    white-space: nowrap;
+    position:fixed; bottom:24px; left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:#1a1a1a; color:#fff; padding:8px 18px;
+    border-radius:999px; font-size:12px; font-family:'DM Mono',monospace;
+    opacity:0; transition:all 0.2s; pointer-events:none; z-index:300; white-space:nowrap;
   }
-
-  #toast.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #zoomLabel {
+    position:fixed; bottom:24px; right:24px;
+    font-family:'DM Mono',monospace; font-size:11px; color:#aaa;
+    background:#fff; padding:4px 10px; border-radius:999px;
+    box-shadow:0 1px 6px rgba(0,0,0,0.08);
   }
 </style>
 </head>
 <body>
-
 <canvas id="canvas"></canvas>
-
-<!-- Left panel: road type selector -->
-<div id="panel">
-  <div class="panel-title">Road Type</div>
-</div>
-
-<!-- Top status bar -->
+<div id="panel"><div class="panel-title">Road Type</div></div>
 <div id="topbar">
   <span class="mode-pill" id="modePill">NAVIGATE</span>
   <span class="mode-label" id="modeLabel">ForTheStreetGeeks</span>
-  <span class="hint" id="modeHint">SPACE = build mode · WASD = pan</span>
+  <span class="hint" id="modeHint">SPACE=build · WASD=pan · I/O=zoom · Shift=fast</span>
 </div>
-
-<!-- Street name input -->
-<input id="nameInput" type="text" placeholder="Street name (optional)" maxlength="40" />
-
-<!-- Toast -->
-<div id="toast" id="toast"></div>
+<input id="nameInput" type="text" placeholder="Street name (Enter to confirm)" maxlength="40"/>
+<div id="toast"></div>
+<div id="zoomLabel">100%</div>
 
 <script>
-// ════════════════════════════════════════════════
-//  ROAD TYPE DEFINITIONS
-// ════════════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  CONSTANTS & ROAD TYPES
+// ═══════════════════════════════════════════
+const LANE_W = { through:12, bus:12, bike:8, parking:9, service:14 };
+const ROAD_SURFACE = '#d4d0cb';
+const ROAD_EDGE    = '#b0aba4';
+const CENTER_YELLOW = '#d4a017';
+
 const ROAD_TYPES = [
   {
-    id: 'narrow_twoway',
-    label: 'Narrow Two-Way',
-    lanes: [
-      { type: 'through', dir: -1 },
-      { type: 'through', dir:  1 },
-    ],
-    totalWidth: 28,
-    centerLine: 'double_yellow',
-    twoWay: true,
+    id:'narrow_twoway', label:'Narrow Two-Way', twoWay:true,
+    lanes:[{type:'through',dir:-1},{type:'through',dir:1}],
   },
   {
-    id: 'standard_twoway',
-    label: 'Standard Two-Way',
-    lanes: [
-      { type: 'parking', dir: -1 },
-      { type: 'through', dir: -1 },
-      { type: 'through', dir:  1 },
-      { type: 'parking', dir:  1 },
-    ],
-    totalWidth: 44,
-    centerLine: 'double_yellow',
-    twoWay: true,
+    id:'standard_twoway', label:'Standard Two-Way', twoWay:true,
+    lanes:[{type:'parking',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'parking',dir:1}],
   },
   {
-    id: 'twoway_bike',
-    label: 'Two-Way + Bike',
-    lanes: [
-      { type: 'bike',    dir: -1 },
-      { type: 'through', dir: -1 },
-      { type: 'through', dir:  1 },
-      { type: 'bike',    dir:  1 },
-    ],
-    totalWidth: 48,
-    centerLine: 'double_yellow',
-    twoWay: true,
+    id:'twoway_bike', label:'Two-Way + Bike', twoWay:true,
+    lanes:[{type:'bike',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'bike',dir:1}],
   },
   {
-    id: 'twoway_bus',
-    label: 'Two-Way + Bus',
-    lanes: [
-      { type: 'bus',     dir: -1 },
-      { type: 'through', dir: -1 },
-      { type: 'through', dir:  1 },
-      { type: 'bus',     dir:  1 },
-    ],
-    totalWidth: 52,
-    centerLine: 'double_yellow',
-    twoWay: true,
+    id:'twoway_bus', label:'Two-Way + Bus', twoWay:true,
+    lanes:[{type:'bus',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'bus',dir:1}],
   },
   {
-    id: 'oneway_narrow',
-    label: 'One-Way Narrow',
-    lanes: [
-      { type: 'through', dir: 1 },
-    ],
-    totalWidth: 18,
-    centerLine: null,
-    twoWay: false,
+    id:'oneway_narrow', label:'One-Way Narrow', twoWay:false,
+    lanes:[{type:'through',dir:1}],
   },
   {
-    id: 'oneway_standard',
-    label: 'One-Way (2 lanes)',
-    lanes: [
-      { type: 'through', dir: 1 },
-      { type: 'through', dir: 1 },
-    ],
-    totalWidth: 30,
-    centerLine: null,
-    twoWay: false,
+    id:'oneway_standard', label:'One-Way (2 lanes)', twoWay:false,
+    lanes:[{type:'through',dir:1},{type:'through',dir:1}],
   },
   {
-    id: 'avenue',
-    label: 'Avenue (3 lanes)',
-    lanes: [
-      { type: 'through', dir: 1 },
-      { type: 'through', dir: 1 },
-      { type: 'through', dir: 1 },
-    ],
-    totalWidth: 44,
-    centerLine: null,
-    twoWay: false,
+    id:'avenue', label:'Avenue (3 lanes)', twoWay:false,
+    lanes:[{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}],
   },
   {
-    id: 'avenue_bus',
-    label: 'Avenue + Bus Lane',
-    lanes: [
-      { type: 'bus',     dir: 1 },
-      { type: 'through', dir: 1 },
-      { type: 'through', dir: 1 },
-      { type: 'through', dir: 1 },
-    ],
-    totalWidth: 56,
-    centerLine: null,
-    twoWay: false,
+    id:'avenue_bus', label:'Avenue + Bus Lane', twoWay:false,
+    lanes:[{type:'bus',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}],
   },
   {
-    id: 'avenue_bus_bike',
-    label: 'Avenue + Bus + Bike',
-    lanes: [
-      { type: 'bike',    dir: 1 },
-      { type: 'bus',     dir: 1 },
-      { type: 'through', dir: 1 },
-      { type: 'through', dir: 1 },
-      { type: 'through', dir: 1 },
-    ],
-    totalWidth: 66,
-    centerLine: null,
-    twoWay: false,
+    id:'avenue_bus_bike', label:'Avenue + Bus + Bike', twoWay:false,
+    lanes:[{type:'bike',dir:1},{type:'bus',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}],
   },
   {
-    id: 'alley',
-    label: 'Alley / Service',
-    lanes: [
-      { type: 'service', dir: 0 },
-    ],
-    totalWidth: 14,
-    centerLine: null,
-    twoWay: true,
+    id:'alley', label:'Alley / Service', twoWay:true,
+    lanes:[{type:'service',dir:0}],
   },
 ];
 
-// Lane widths
-const LANE_W = {
-  through:  12,
-  bus:      12,
-  bike:      8,
-  parking:   9,
-  service:  14,
-};
+// Compute totalWidth from lanes
+ROAD_TYPES.forEach(rt => {
+  rt.totalWidth = rt.lanes.reduce((s,l) => s + LANE_W[l.type], 0);
+});
 
-// Lane colors (fill)
-const LANE_COLOR = {
-  through:  '#c8c8c8',
-  bus:      '#c8c8c8',
-  bike:     '#b5d5b0',
-  parking:  '#c0c0c0',
-  service:  '#bbbbbb',
-};
-
-const ROAD_SURFACE = '#d4d0cb';
-const ROAD_EDGE    = '#b0aba4';
-
-// ════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 //  STATE
-// ════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
-
 let W = window.innerWidth, H = window.innerHeight;
 canvas.width = W; canvas.height = H;
 
-// Camera
-let camX = 0, camY = 0;
+let camX = 0, camY = 0, zoom = 1;
 const keys = {};
+let mouseX = 0, mouseY = 0; // screen coords
 
-// Mode
-let buildMode = false;
-let curveMode = false; // per-waypoint curve toggle
-
-// Current road being drawn
-let currentRoad = null; // { typeId, waypoints: [{x,y,curve:bool}], name: '' }
-
-// All completed roads
-let roads = [];
-
-// Selected road type
+let buildMode     = false;
 let selectedTypeId = ROAD_TYPES[0].id;
+let currentRoad   = null; // {typeId, waypoints:[{x,y,curve}], name:''}
+let roads         = [];
+let namingRoad    = null;
 
-// Naming state
-let namingRoad = null;
-
-// ════════════════════════════════════════════════
-//  PANEL: build road type buttons
-// ════════════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  PANEL
+// ═══════════════════════════════════════════
 const panel = document.getElementById('panel');
+const keyLabels = ['1','2','3','4','5','6','7','8','9','0'];
 
-ROAD_TYPES.forEach(rt => {
+ROAD_TYPES.forEach((rt, idx) => {
   const btn = document.createElement('button');
   btn.className = 'road-btn' + (rt.id === selectedTypeId ? ' active' : '');
   btn.dataset.id = rt.id;
 
-  // Mini preview canvas
   const prev = document.createElement('canvas');
   prev.width = 36; prev.height = 22;
   prev.className = 'preview';
@@ -404,27 +186,35 @@ ROAD_TYPES.forEach(rt => {
   lbl.className = 'label';
   lbl.textContent = rt.label;
 
+  const badge = document.createElement('span');
+  badge.className = 'key-badge';
+  badge.textContent = keyLabels[idx] || '';
+
   btn.appendChild(prev);
   btn.appendChild(lbl);
-  btn.addEventListener('click', () => {
-    selectedTypeId = rt.id;
-    document.querySelectorAll('.road-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    toast('Road type: ' + rt.label);
-  });
+  if (keyLabels[idx]) btn.appendChild(badge);
+
+  btn.addEventListener('click', () => selectType(rt.id));
   panel.appendChild(btn);
 });
+
+function selectType(id) {
+  selectedTypeId = id;
+  document.querySelectorAll('.road-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.id === id)
+  );
+  const rt = ROAD_TYPES.find(r => r.id === id);
+  toast('Road: ' + rt.label);
+}
 
 function drawPreview(cvs, rt) {
   const c = cvs.getContext('2d');
   const pw = cvs.width, ph = cvs.height;
   c.clearRect(0, 0, pw, ph);
-
-  // draw road cross-section from left to right
-  const scale = Math.min(pw / rt.totalWidth, 1);
+  const scale = Math.min(pw / rt.totalWidth, 1.2);
   const roadW = rt.totalWidth * scale;
   const startX = (pw - roadW) / 2;
-  const roadH = ph * 0.7;
+  const roadH = ph * 0.72;
   const y0 = (ph - roadH) / 2;
 
   c.fillStyle = ROAD_SURFACE;
@@ -433,42 +223,35 @@ function drawPreview(cvs, rt) {
   let x = startX;
   rt.lanes.forEach((lane, i) => {
     const lw = LANE_W[lane.type] * scale;
-    if (lane.type === 'bike') {
-      c.fillStyle = '#b5d5b0';
-      c.fillRect(x, y0, lw, roadH);
-    } else if (lane.type === 'bus') {
-      c.fillStyle = '#d4b8b8';
-      c.fillRect(x, y0, lw, roadH);
-    }
-    // lane divider
-    if (i < rt.lanes.length - 1) {
-      const isCenter = rt.twoWay && (i === Math.floor(rt.lanes.length / 2) - 1);
-      c.strokeStyle = isCenter ? '#e8c000' : '#fff';
-      c.lineWidth = isCenter ? 1.5 : 0.8;
-      c.setLineDash(isCenter ? [] : [3, 3]);
-      c.beginPath();
-      c.moveTo(x + lw, y0);
-      c.lineTo(x + lw, y0 + roadH);
-      c.stroke();
+    if (lane.type === 'bike') { c.fillStyle='#b8d9b3'; c.fillRect(x,y0,lw,roadH); }
+    if (lane.type === 'bus')  { c.fillStyle='#e8d0d0'; c.fillRect(x,y0,lw,roadH); }
+    if (i < rt.lanes.length-1) {
+      const isCenter = rt.twoWay && i === Math.floor(rt.lanes.length/2)-1;
+      c.strokeStyle = isCenter ? CENTER_YELLOW : '#fff';
+      c.lineWidth   = isCenter ? 1.5 : 0.8;
+      c.setLineDash(isCenter ? [] : [3,3]);
+      c.beginPath(); c.moveTo(x+lw,y0); c.lineTo(x+lw,y0+roadH); c.stroke();
       c.setLineDash([]);
     }
     x += lw;
   });
-
-  // Edge lines
-  c.strokeStyle = ROAD_EDGE;
-  c.lineWidth = 1;
+  c.strokeStyle = ROAD_EDGE; c.lineWidth = 1;
   c.beginPath();
-  c.moveTo(startX, y0); c.lineTo(startX, y0 + roadH);
-  c.moveTo(startX + roadW, y0); c.lineTo(startX + roadW, y0 + roadH);
+  c.moveTo(startX,y0); c.lineTo(startX,y0+roadH);
+  c.moveTo(startX+roadW,y0); c.lineTo(startX+roadW,y0+roadH);
   c.stroke();
 }
 
-// ════════════════════════════════════════════════
-//  TOAST
-// ════════════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  TOAST + TOPBAR
+// ═══════════════════════════════════════════
 let toastTimer;
-const toastEl = document.getElementById('toast');
+const toastEl   = document.getElementById('toast');
+const modePill  = document.getElementById('modePill');
+const modeLabel = document.getElementById('modeLabel');
+const modeHint  = document.getElementById('modeHint');
+const zoomLabel = document.getElementById('zoomLabel');
+
 function toast(msg) {
   toastEl.textContent = msg;
   toastEl.classList.add('show');
@@ -476,38 +259,332 @@ function toast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2000);
 }
 
-// ════════════════════════════════════════════════
-//  TOPBAR update
-// ════════════════════════════════════════════════
-const modePill  = document.getElementById('modePill');
-const modeLabel = document.getElementById('modeLabel');
-const modeHint  = document.getElementById('modeHint');
-
 function updateTopbar() {
   if (buildMode) {
     modePill.className = 'mode-pill build';
     modePill.textContent = 'BUILD';
     if (currentRoad) {
-      modeLabel.textContent = currentRoad.waypoints.length + ' waypoint(s)';
-      modeHint.textContent = 'CLICK = add point · V = curve · SPACE = finish · ESC = cancel';
+      const n = currentRoad.waypoints.length;
+      modeLabel.textContent = n + ' pt' + (n!==1?'s':'');
+      modeHint.textContent = 'CLICK=add · V=curve toggle · SPACE=finish · ESC=cancel';
     } else {
-      modeLabel.textContent = 'Click to start road';
-      modeHint.textContent = 'SPACE = exit · ESC = cancel';
+      modeLabel.textContent = 'Click to start';
+      modeHint.textContent = 'SPACE=exit build · ESC=cancel';
     }
   } else {
     modePill.className = 'mode-pill';
     modePill.textContent = 'NAVIGATE';
     modeLabel.textContent = 'ForTheStreetGeeks';
-    modeHint.textContent = 'SPACE = build mode · WASD = pan';
+    modeHint.textContent = 'SPACE=build · WASD=pan · I/O=zoom · Shift=fast';
+  }
+  zoomLabel.textContent = Math.round(zoom * 100) + '%';
+}
+
+// ═══════════════════════════════════════════
+//  CATMULL-ROM SPLINE HELPERS
+// ═══════════════════════════════════════════
+// Given 4 control points, return point at t on Catmull-Rom
+function catmullRomPoint(p0, p1, p2, p3, t) {
+  const t2 = t*t, t3 = t2*t;
+  return {
+    x: 0.5*((2*p1.x)+(-p0.x+p2.x)*t+(2*p0.x-5*p1.x+4*p2.x-p3.x)*t2+(-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+    y: 0.5*((2*p1.y)+(-p0.y+p2.y)*t+(2*p0.y-5*p1.y+4*p2.y-p3.y)*t2+(-p0.y+3*p1.y-3*p2.y+p3.y)*t3),
+  };
+}
+
+// Expand waypoints into a dense polyline using Catmull-Rom
+function splinePoints(wps, stepsPerSeg = 16) {
+  if (wps.length < 2) return wps.slice();
+  // Pad with ghost points at ends
+  const pts = [
+    { x: wps[0].x*2 - wps[1].x, y: wps[0].y*2 - wps[1].y },
+    ...wps,
+    { x: wps[wps.length-1].x*2 - wps[wps.length-2].x, y: wps[wps.length-1].y*2 - wps[wps.length-2].y },
+  ];
+  const out = [];
+  for (let i = 1; i < pts.length - 2; i++) {
+    for (let s = 0; s < stepsPerSeg; s++) {
+      out.push(catmullRomPoint(pts[i-1], pts[i], pts[i+1], pts[i+2], s / stepsPerSeg));
+    }
+  }
+  out.push(wps[wps.length-1]);
+  return out;
+}
+
+// Total arc length of a polyline
+function polylineLength(pts) {
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+    len += Math.sqrt(dx*dx + dy*dy);
+  }
+  return len;
+}
+
+// Point at fraction t along a polyline (0-1)
+function polylineAt(pts, t) {
+  const total = polylineLength(pts);
+  let target = total * Math.max(0, Math.min(1, t));
+  let acc = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x-pts[i-1].x, dy = pts[i].y-pts[i-1].y;
+    const segLen = Math.sqrt(dx*dx+dy*dy);
+    if (acc + segLen >= target || i === pts.length-1) {
+      const frac = segLen > 0 ? (target - acc) / segLen : 0;
+      return {
+        x: pts[i-1].x + dx*frac,
+        y: pts[i-1].y + dy*frac,
+        angle: Math.atan2(dy, dx),
+      };
+    }
+    acc += segLen;
+  }
+  return { ...pts[pts.length-1], angle: 0 };
+}
+
+// ═══════════════════════════════════════════
+//  ROAD DRAWING
+// ═══════════════════════════════════════════
+function getRoadType(id) { return ROAD_TYPES.find(r=>r.id===id) || ROAD_TYPES[0]; }
+
+function drawRoad(road, isPreview) {
+  const rt  = getRoadType(road.typeId);
+  const wps = road.waypoints;
+  if (wps.length < 2) return;
+
+  // Always use smooth spline
+  const spine = splinePoints(wps, 20);
+  const hw    = rt.totalWidth / 2;
+
+  // ── 1. Road body (stroke with large lineWidth for the base shape) ──
+  ctx.save();
+  ctx.lineCap  = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = ROAD_SURFACE;
+  ctx.lineWidth   = rt.totalWidth;
+  ctx.beginPath();
+  ctx.moveTo(spine[0].x, spine[0].y);
+  for (let i = 1; i < spine.length; i++) ctx.lineTo(spine[i].x, spine[i].y);
+  ctx.stroke();
+
+  // ── 2. Colored special lanes (bike/bus) as offset strokes ──
+  // We'll draw them by rendering thin offset polylines
+  let laneOff = -hw;
+  rt.lanes.forEach((lane, li) => {
+    const lw = LANE_W[lane.type];
+    if (lane.type === 'bike' || lane.type === 'bus') {
+      const centerOff = laneOff + lw/2;
+      ctx.strokeStyle = lane.type==='bike' ? '#b8d9b3' : '#e8d0d0';
+      ctx.lineWidth   = lw;
+      ctx.lineCap     = 'butt';
+      ctx.lineJoin    = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < spine.length; i++) {
+        const pt  = spine[i];
+        const ang = i < spine.length-1
+          ? Math.atan2(spine[i+1].y-pt.y, spine[i+1].x-pt.x)
+          : Math.atan2(pt.y-spine[i-1].y, pt.x-spine[i-1].x);
+        const perp = ang + Math.PI/2;
+        const ox = pt.x + Math.cos(perp)*centerOff;
+        const oy = pt.y + Math.sin(perp)*centerOff;
+        if (i===0) ctx.moveTo(ox,oy); else ctx.lineTo(ox,oy);
+      }
+      ctx.stroke();
+    }
+    laneOff += lw;
+  });
+
+  // ── 3. Lane dividers ──
+  laneOff = -hw;
+  rt.lanes.forEach((lane, li) => {
+    const lw = LANE_W[lane.type];
+    if (li < rt.lanes.length - 1) {
+      const divOff = laneOff + lw;
+      const isCenter = rt.twoWay && li === Math.floor(rt.lanes.length/2)-1;
+
+      if (isCenter) {
+        // Double yellow: draw two lines offset by ±1px
+        [-1.2, 1.2].forEach(yoff => {
+          const off2 = divOff + yoff;
+          ctx.strokeStyle = CENTER_YELLOW;
+          ctx.lineWidth   = 1;
+          ctx.setLineDash([]);
+          ctx.lineCap = 'butt';
+          ctx.beginPath();
+          for (let i = 0; i < spine.length; i++) {
+            const pt  = spine[i];
+            const ang = i < spine.length-1
+              ? Math.atan2(spine[i+1].y-pt.y, spine[i+1].x-pt.x)
+              : Math.atan2(pt.y-spine[i-1].y, pt.x-spine[i-1].x);
+            const perp = ang + Math.PI/2;
+            const ox = pt.x + Math.cos(perp)*off2;
+            const oy = pt.y + Math.sin(perp)*off2;
+            if (i===0) ctx.moveTo(ox,oy); else ctx.lineTo(ox,oy);
+          }
+          ctx.stroke();
+        });
+      } else {
+        // White dashed lane divider
+        ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+        ctx.lineWidth   = 1;
+        ctx.setLineDash([10, 10]);
+        ctx.lineCap = 'butt';
+        ctx.beginPath();
+        for (let i = 0; i < spine.length; i++) {
+          const pt  = spine[i];
+          const ang = i < spine.length-1
+            ? Math.atan2(spine[i+1].y-pt.y, spine[i+1].x-pt.x)
+            : Math.atan2(pt.y-spine[i-1].y, pt.x-spine[i-1].x);
+          const perp = ang + Math.PI/2;
+          const ox = pt.x + Math.cos(perp)*divOff;
+          const oy = pt.y + Math.sin(perp)*divOff;
+          if (i===0) ctx.moveTo(ox,oy); else ctx.lineTo(ox,oy);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+    laneOff += lw;
+  });
+
+  // ── 4. Edge lines ──
+  ctx.setLineDash([]);
+  [-hw, hw].forEach(off => {
+    ctx.strokeStyle = ROAD_EDGE;
+    ctx.lineWidth   = 1.2;
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+    for (let i = 0; i < spine.length; i++) {
+      const pt  = spine[i];
+      const ang = i < spine.length-1
+        ? Math.atan2(spine[i+1].y-pt.y, spine[i+1].x-pt.x)
+        : Math.atan2(pt.y-spine[i-1].y, pt.x-spine[i-1].x);
+      const perp = ang + Math.PI/2;
+      const ox = pt.x + Math.cos(perp)*off;
+      const oy = pt.y + Math.sin(perp)*off;
+      if (i===0) ctx.moveTo(ox,oy); else ctx.lineTo(ox,oy);
+    }
+    ctx.stroke();
+  });
+
+  // ── 5. Street name centered on road ──
+  if (road.name) {
+    // Place label at true midpoint of spline
+    const mid = polylineAt(spine, 0.5);
+    // Flip label if road goes right-to-left (keep text readable)
+    let ang = mid.angle;
+    if (ang > Math.PI/2 || ang < -Math.PI/2) ang += Math.PI;
+
+    ctx.save();
+    ctx.translate(mid.x, mid.y);
+    ctx.rotate(ang);
+    ctx.font = '500 9px "DM Sans",sans-serif';
+    ctx.fillStyle   = 'rgba(80,70,60,0.85)';
+    ctx.textAlign   = 'center';
+    ctx.textBaseline = 'middle';
+    // Subtle white halo
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth   = 3;
+    ctx.strokeText(road.name.toUpperCase(), 0, 0);
+    ctx.fillText(road.name.toUpperCase(), 0, 0);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════
+//  CURRENT ROAD OVERLAY (waypoints + preview)
+// ═══════════════════════════════════════════
+function drawBuildOverlay() {
+  if (!currentRoad) return;
+  const wps = currentRoad.waypoints;
+
+  // Draw the partial road so far
+  if (wps.length >= 2) drawRoad(currentRoad, true);
+
+  // Preview line from last waypoint to mouse
+  if (wps.length >= 1) {
+    const last = wps[wps.length-1];
+    // Convert mouse screen → world
+    const mx = (mouseX - W/2) / zoom + camX;
+    const my = (mouseY - H/2) / zoom + camY;
+    const dist = Math.sqrt((mx-last.x)**2 + (my-last.y)**2);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(74,128,245,0.5)';
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([6, 6]);
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(mx, my);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Length label at midpoint
+    if (dist > 10) {
+      const lx = (last.x + mx) / 2;
+      const ly = (last.y + my) / 2;
+      const ang = Math.atan2(my-last.y, mx-last.x);
+      const meters = Math.round(dist * 0.3); // ~px to meters scale
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(ang);
+      ctx.font = '500 9px "DM Mono",monospace';
+      ctx.fillStyle   = '#4a80f5';
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(meters + 'm', 0, -4);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  // Draw waypoint dots
+  wps.forEach((wp, i) => {
+    ctx.beginPath();
+    ctx.arc(wp.x, wp.y, i===0 ? 6 : (wp.curve ? 5 : 4), 0, Math.PI*2);
+    ctx.fillStyle   = i===0 ? '#4a80f5' : (wp.curve ? '#f5a623' : '#4caf50');
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+  });
+}
+
+// ═══════════════════════════════════════════
+//  GRID
+// ═══════════════════════════════════════════
+function drawGrid() {
+  const spacing = 40 * zoom;
+  const offX = ((-camX * zoom + W/2) % spacing + spacing) % spacing;
+  const offY = ((-camY * zoom + H/2) % spacing + spacing) % spacing;
+  ctx.strokeStyle = 'rgba(0,0,0,0.055)';
+  ctx.lineWidth   = 1;
+  ctx.setLineDash([]);
+  for (let x = offX - spacing; x < W + spacing; x += spacing) {
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+  }
+  for (let y = offY - spacing; y < H + spacing; y += spacing) {
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
   }
 }
 
-// ════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 //  INPUT
-// ════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 document.addEventListener('keydown', e => {
-  if (document.activeElement === document.getElementById('nameInput')) return;
-  keys[e.key.toLowerCase()] = true;
+  if (document.activeElement === nameInput) return;
+  keys[e.key] = true;
+
+  // Number keys 1-0 → road type
+  const numMap = {'1':0,'2':1,'3':2,'4':3,'5':4,'6':5,'7':6,'8':7,'9':8,'0':9};
+  if (numMap[e.key] !== undefined) {
+    const rt = ROAD_TYPES[numMap[e.key]];
+    if (rt) selectType(rt.id);
+    return;
+  }
 
   if (e.key === ' ') {
     e.preventDefault();
@@ -518,67 +595,77 @@ document.addEventListener('keydown', e => {
       toast('Navigate mode');
     } else if (!buildMode) {
       buildMode = true;
-      toast('Build mode — click to place waypoints');
+      toast('Build mode');
     }
     updateTopbar();
   }
 
   if (e.key === 'Escape') {
     currentRoad = null;
-    buildMode = false;
+    buildMode   = false;
     updateTopbar();
   }
 
-  if (e.key.toLowerCase() === 'v' && buildMode && currentRoad && currentRoad.waypoints.length > 0) {
-    // Toggle curve on last waypoint
-    const wp = currentRoad.waypoints[currentRoad.waypoints.length - 1];
+  if ((e.key === 'v' || e.key === 'V') && buildMode && currentRoad && currentRoad.waypoints.length > 0) {
+    const wp = currentRoad.waypoints[currentRoad.waypoints.length-1];
     wp.curve = !wp.curve;
-    toast(wp.curve ? 'Curve on' : 'Curve off');
+    toast(wp.curve ? 'Curve mode ON for this point' : 'Curve mode OFF');
   }
+
+  // Zoom I/O
+  if (e.key === 'i' || e.key === 'I') { zoom = Math.min(zoom * 1.15, 6); updateTopbar(); }
+  if (e.key === 'o' || e.key === 'O') { zoom = Math.max(zoom / 1.15, 0.1); updateTopbar(); }
 });
 
-document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+document.addEventListener('keyup', e => { keys[e.key] = false; });
 
-// Mouse
+canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+
 canvas.addEventListener('click', e => {
   if (!buildMode) return;
-  const wx = e.clientX - W/2 + camX;
-  const wy = e.clientY - H/2 + camY;
+  // World coords accounting for zoom
+  const wx = (e.clientX - W/2) / zoom + camX;
+  const wy = (e.clientY - H/2) / zoom + camY;
 
   if (!currentRoad) {
-    currentRoad = {
-      typeId: selectedTypeId,
-      waypoints: [{ x: wx, y: wy, curve: false }],
-      name: '',
-    };
+    currentRoad = { typeId: selectedTypeId, waypoints: [{x:wx,y:wy,curve:false}], name:'' };
     updateTopbar();
     return;
   }
-
-  currentRoad.waypoints.push({ x: wx, y: wy, curve: false });
+  currentRoad.waypoints.push({x:wx, y:wy, curve:false});
   updateTopbar();
 });
 
-// ════════════════════════════════════════════════
+// Scroll to zoom
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 1/1.1;
+  zoom = Math.max(0.1, Math.min(6, zoom * factor));
+  updateTopbar();
+}, {passive:false});
+
+// ═══════════════════════════════════════════
 //  ROAD FINISH + NAMING
-// ════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 const nameInput = document.getElementById('nameInput');
+let namingRoad  = null;
 
 function finishRoad() {
-  // Prompt for name at midpoint of road
   const wps = currentRoad.waypoints;
-  const mid = wps[Math.floor(wps.length / 2)];
-  const sx = mid.x - camX + W/2;
-  const sy = mid.y - camY + H/2;
+  // Position input at screen midpoint of road
+  const mid = polylineAt(splinePoints(wps, 8), 0.5);
+  const sx  = (mid.x - camX) * zoom + W/2;
+  const sy  = (mid.y - camY) * zoom + H/2;
 
   nameInput.style.display = 'block';
-  nameInput.style.left = (sx - 80) + 'px';
-  nameInput.style.top  = (sy - 40) + 'px';
+  nameInput.style.left    = Math.max(8, sx - 90) + 'px';
+  nameInput.style.top     = Math.max(8, sy - 40) + 'px';
   nameInput.value = '';
   nameInput.focus();
-  namingRoad = currentRoad;
+
+  namingRoad  = currentRoad;
   currentRoad = null;
-  buildMode = false;
+  buildMode   = false;
   updateTopbar();
 }
 
@@ -595,256 +682,34 @@ nameInput.addEventListener('keydown', e => {
   }
 });
 
-// ════════════════════════════════════════════════
-//  RENDER ROAD
-// ════════════════════════════════════════════════
-function getRoadType(id) {
-  return ROAD_TYPES.find(r => r.id === id) || ROAD_TYPES[0];
-}
-
-// Build a smooth path through waypoints (bezier if curve flag set)
-function buildPath(waypoints) {
-  if (waypoints.length < 2) return null;
-  const path = new Path2D();
-  path.moveTo(waypoints[0].x, waypoints[0].y);
-
-  for (let i = 1; i < waypoints.length; i++) {
-    const prev = waypoints[i-1];
-    const curr = waypoints[i];
-    if (prev.curve || curr.curve) {
-      // Smooth cubic bezier
-      const mx = (prev.x + curr.x) / 2;
-      const my = (prev.y + curr.y) / 2;
-      path.quadraticCurveTo(prev.x, prev.y, mx, my);
-      if (i === waypoints.length - 1) path.quadraticCurveTo(curr.x, curr.y, curr.x, curr.y);
-    } else {
-      path.lineTo(curr.x, curr.y);
-    }
-  }
-  return path;
-}
-
-// Compute segment angle at a point
-function segmentAngle(waypoints, idx) {
-  if (waypoints.length < 2) return 0;
-  const i = Math.min(idx, waypoints.length - 2);
-  const a = waypoints[i], b = waypoints[i+1];
-  return Math.atan2(b.y - a.y, b.x - a.x);
-}
-
-function drawRoad(road) {
-  const rt = getRoadType(road.typeId);
-  const wps = road.waypoints;
-  if (wps.length < 2) return;
-
-  const totalW = rt.totalWidth;
-
-  // Draw each segment
-  for (let s = 0; s < wps.length - 1; s++) {
-    const a = wps[s], b = wps[s+1];
-    const angle = Math.atan2(b.y - a.y, b.x - a.x);
-    const perp  = angle + Math.PI / 2;
-    const cos   = Math.cos(perp), sin = Math.sin(perp);
-
-    // Road body
-    const hw = totalW / 2;
-    ctx.beginPath();
-    ctx.moveTo(a.x - cos*hw, a.y - sin*hw);
-    ctx.lineTo(a.x + cos*hw, a.y + sin*hw);
-    ctx.lineTo(b.x + cos*hw, b.y + sin*hw);
-    ctx.lineTo(b.x - cos*hw, b.y - sin*hw);
-    ctx.closePath();
-    ctx.fillStyle = ROAD_SURFACE;
-    ctx.fill();
-
-    // Draw lanes
-    let laneOffset = -totalW / 2;
-    rt.lanes.forEach((lane, li) => {
-      const lw = LANE_W[lane.type];
-      const lCenter = laneOffset + lw / 2;
-
-      // Colored lanes
-      if (lane.type === 'bike') {
-        const x0 = a.x + cos*laneOffset, y0 = a.y + sin*laneOffset;
-        const x1 = a.x + cos*(laneOffset+lw), y1 = a.y + sin*(laneOffset+lw);
-        const x2 = b.x + cos*(laneOffset+lw), y2 = b.y + sin*(laneOffset+lw);
-        const x3 = b.x + cos*laneOffset, y3 = b.y + sin*laneOffset;
-        ctx.beginPath();
-        ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
-        ctx.lineTo(x2, y2); ctx.lineTo(x3, y3);
-        ctx.closePath();
-        ctx.fillStyle = '#b8d9b3';
-        ctx.fill();
-      }
-      if (lane.type === 'bus') {
-        const x0 = a.x + cos*laneOffset, y0 = a.y + sin*laneOffset;
-        const x1 = a.x + cos*(laneOffset+lw), y1 = a.y + sin*(laneOffset+lw);
-        const x2 = b.x + cos*(laneOffset+lw), y2 = b.y + sin*(laneOffset+lw);
-        const x3 = b.x + cos*laneOffset, y3 = b.y + sin*laneOffset;
-        ctx.beginPath();
-        ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
-        ctx.lineTo(x2, y2); ctx.lineTo(x3, y3);
-        ctx.closePath();
-        ctx.fillStyle = '#e8d0d0';
-        ctx.fill();
-      }
-
-      // Lane dividers (not last lane)
-      if (li < rt.lanes.length - 1) {
-        const divX_a = a.x + cos*(laneOffset + lw);
-        const divY_a = a.y + sin*(laneOffset + lw);
-        const divX_b = b.x + cos*(laneOffset + lw);
-        const divY_b = b.y + sin*(laneOffset + lw);
-
-        const isCenter = rt.twoWay && (li === Math.floor(rt.lanes.length/2) - 1);
-
-        ctx.beginPath();
-        ctx.moveTo(divX_a, divY_a);
-        ctx.lineTo(divX_b, divY_b);
-
-        if (isCenter) {
-          // Double yellow center line
-          ctx.strokeStyle = '#e8c000';
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([]);
-        } else {
-          ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([8, 8]);
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-
-      laneOffset += lw;
-    });
-
-    // Edge lines
-    ctx.strokeStyle = ROAD_EDGE;
-    ctx.lineWidth = 1.2;
-    ctx.setLineDash([]);
-    [-hw, hw].forEach(off => {
-      ctx.beginPath();
-      ctx.moveTo(a.x + cos*off, a.y + sin*off);
-      ctx.lineTo(b.x + cos*off, b.y + sin*off);
-      ctx.stroke();
-    });
-
-    // Caps
-    ctx.beginPath();
-    ctx.moveTo(a.x - cos*hw, a.y - sin*hw);
-    ctx.lineTo(a.x + cos*hw, a.y + sin*hw);
-    ctx.strokeStyle = ROAD_EDGE;
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(b.x - cos*hw, b.y - sin*hw);
-    ctx.lineTo(b.x + cos*hw, b.y + sin*hw);
-    ctx.stroke();
-  }
-
-  // Street name label along road
-  if (road.name) {
-    const mid = wps[Math.floor(wps.length / 2)];
-    const a2  = wps[Math.max(0, Math.floor(wps.length/2)-1)];
-    const b2  = wps[Math.min(wps.length-1, Math.floor(wps.length/2)+1)];
-    const ang = Math.atan2(b2.y - a2.y, b2.x - a2.x);
-
-    ctx.save();
-    ctx.translate(mid.x, mid.y);
-    ctx.rotate(ang);
-    ctx.font = '500 9px "DM Sans", sans-serif';
-    ctx.fillStyle = '#666';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(road.name.toUpperCase(), 0, 0);
-    ctx.restore();
-  }
-}
-
-// Draw waypoints for current road
-function drawCurrentRoadWaypoints() {
-  if (!currentRoad) return;
-  const wps = currentRoad.waypoints;
-
-  // Draw the partial road
-  if (wps.length >= 2) drawRoad({ ...currentRoad, waypoints: wps });
-
-  // Draw waypoint dots
-  wps.forEach((wp, i) => {
-    const isFirst = i === 0;
-    const isLast  = i === wps.length - 1;
-    ctx.beginPath();
-    ctx.arc(wp.x, wp.y, isFirst ? 7 : 5, 0, Math.PI * 2);
-    ctx.fillStyle   = isFirst ? '#4a80f5' : (wp.curve ? '#f5a623' : '#4caf50');
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth   = 2;
-    ctx.stroke();
-  });
-}
-
-// ════════════════════════════════════════════════
-//  GRID
-// ════════════════════════════════════════════════
-function drawGrid() {
-  const spacing = 40;
-  const offX = ((camX % spacing) + spacing) % spacing;
-  const offY = ((camY % spacing) + spacing) % spacing;
-
-  ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-  ctx.lineWidth   = 1;
-  ctx.setLineDash([]);
-
-  for (let x = -offX; x < W + spacing; x += spacing) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0); ctx.lineTo(x, H);
-    ctx.stroke();
-  }
-  for (let y = -offY; y < H + spacing; y += spacing) {
-    ctx.beginPath();
-    ctx.moveTo(0, y); ctx.lineTo(W, y);
-    ctx.stroke();
-  }
-}
-
-// ════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 //  MAIN LOOP
-// ════════════════════════════════════════════════
-const CAM_SPEED = 5;
-
+// ═══════════════════════════════════════════
 function loop() {
-  // Camera pan
-  if (keys['w'] || keys['arrowup'])    camY -= CAM_SPEED;
-  if (keys['s'] || keys['arrowdown'])  camY += CAM_SPEED;
-  if (keys['a'] || keys['arrowleft'])  camX -= CAM_SPEED;
-  if (keys['d'] || keys['arrowright']) camX += CAM_SPEED;
+  const speed = (keys['Shift'] ? 14 : 5) / zoom;
+  if (keys['w'] || keys['ArrowUp'])    camY -= speed;
+  if (keys['s'] || keys['ArrowDown'])  camY += speed;
+  if (keys['a'] || keys['ArrowLeft'])  camX -= speed;
+  if (keys['d'] || keys['ArrowRight']) camX += speed;
 
-  // Clear
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#f0ede8';
   ctx.fillRect(0, 0, W, H);
 
-  // Grid
   drawGrid();
 
-  // World transform
   ctx.save();
-  ctx.translate(W/2 - camX, H/2 - camY);
+  ctx.translate(W/2 - camX * zoom, H/2 - camY * zoom);
+  ctx.scale(zoom, zoom);
 
-  // Draw all placed roads
-  roads.forEach(drawRoad);
-
-  // Draw current road being built
-  drawCurrentRoadWaypoints();
+  roads.forEach(r => drawRoad(r, false));
+  drawBuildOverlay();
 
   ctx.restore();
 
   requestAnimationFrame(loop);
 }
 
-// Resize
 window.addEventListener('resize', () => {
   W = window.innerWidth; H = window.innerHeight;
   canvas.width = W; canvas.height = H;
