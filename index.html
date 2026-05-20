@@ -9,7 +9,6 @@
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:#f0ede8;font-family:'DM Sans',sans-serif;overflow:hidden;user-select:none;cursor:default;}
   #canvas{display:block;position:absolute;top:0;left:0;}
-
   #panel{
     position:fixed;left:16px;top:50%;transform:translateY(-50%);
     background:#fff;border-radius:14px;
@@ -40,7 +39,6 @@
     background:#f5f5f5;border-radius:4px;padding:1px 4px;flex-shrink:0;
   }
   .road-btn.active .key-badge{background:#c8d8fc;color:#4a80f5;}
-
   #topbar{
     position:fixed;top:16px;left:50%;transform:translateX(-50%);
     background:#fff;border-radius:999px;
@@ -57,7 +55,6 @@
   }
   .mode-pill.build{background:#4a80f5;color:#fff;}
   .mode-pill.curve{background:#f5a623;color:#fff;}
-
   #nameInput{
     position:fixed;display:none;z-index:200;
     background:#fff;border:1.5px solid #4a80f5;border-radius:8px;
@@ -97,7 +94,7 @@
 <div id="topbar">
   <span class="mode-pill" id="modePill">NAVIGATE</span>
   <span class="mode-label" id="modeLabel">ForTheStreetGeeks</span>
-  <span class="hint"  id="modeHint">SPACE=build · WASD=pan · I/O=zoom · Shift=fast</span>
+  <span class="hint" id="modeHint">SPACE=build · WASD=pan · I/O=zoom · Shift=fast</span>
 </div>
 <input id="nameInput" type="text" placeholder="Street name (Enter to confirm)" maxlength="40"/>
 <div id="toast"></div>
@@ -138,13 +135,10 @@ canvas.width=W; canvas.height=H;
 let camX=0,camY=0,zoom=1;
 const keys={};
 let mouseX=0,mouseY=0;
-
 let buildMode=false;
-let curveMode=false;   // V toggled — waiting to drag a segment
+let curveMode=false;
 
-// A road: { typeId, waypoints:[{x,y}], segments:[null|{cpx,cpy}], name }
-// segments[i] is the control point for quadratic bezier between waypoints[i] and [i+1]
-// null = straight line
+// road: { typeId, waypoints:[{x,y}], segments:[null|{cpx,cpy}], name }
 let currentRoad=null;
 let roads=[];
 let undoStack=[], redoStack=[];
@@ -156,7 +150,6 @@ let namingRoad=null;
 // ═══════════════════════════════════════════════════
 const panel=document.getElementById('panel');
 const KEY_LABELS=['1','2','3','4','5','6','7','8','9','0'];
-
 ROAD_TYPES.forEach((rt,idx)=>{
   const btn=document.createElement('button');
   btn.className='road-btn'+(rt.id===selectedTypeId?' active':'');
@@ -164,10 +157,8 @@ ROAD_TYPES.forEach((rt,idx)=>{
   const prev=document.createElement('canvas');
   prev.width=36;prev.height=22;prev.className='preview';
   drawPreview(prev,rt);
-  const lbl=document.createElement('span');
-  lbl.className='label';lbl.textContent=rt.label;
-  const badge=document.createElement('span');
-  badge.className='key-badge';badge.textContent=KEY_LABELS[idx]||'';
+  const lbl=document.createElement('span');lbl.className='label';lbl.textContent=rt.label;
+  const badge=document.createElement('span');badge.className='key-badge';badge.textContent=KEY_LABELS[idx]||'';
   btn.appendChild(prev);btn.appendChild(lbl);
   if(KEY_LABELS[idx])btn.appendChild(badge);
   btn.addEventListener('click',()=>selectType(rt.id));
@@ -222,11 +213,10 @@ function toast(msg){
   toastEl.textContent=msg;toastEl.classList.add('show');
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),2000);
 }
-
 function updateTopbar(){
   if(curveMode&&buildMode){
     modePill.className='mode-pill curve';modePill.textContent='CURVE';
-    modeLabel.textContent='Drag segment · Click to set';
+    modeLabel.textContent='Move mouse to bend · Click to set';
     modeHint.textContent='V=cancel curve · ESC=cancel road';
   } else if(buildMode){
     modePill.className='mode-pill build';modePill.textContent='BUILD';
@@ -247,11 +237,7 @@ function updateTopbar(){
   btnUndo.disabled=undoStack.length===0;
   btnRedo.disabled=redoStack.length===0;
 }
-
-function saveUndo(){
-  undoStack.push(JSON.stringify(roads));
-  redoStack=[];updateTopbar();
-}
+function saveUndo(){undoStack.push(JSON.stringify(roads));redoStack=[];updateTopbar();}
 function undo(){
   if(!undoStack.length)return;
   redoStack.push(JSON.stringify(roads));
@@ -270,33 +256,36 @@ btnRedo.addEventListener('click',redo);
 // ═══════════════════════════════════════════════════
 //  COORDINATE HELPERS
 // ═══════════════════════════════════════════════════
-function screenToWorld(sx,sy){
-  return{x:(sx-W/2)/zoom+camX, y:(sy-H/2)/zoom+camY};
-}
+function screenToWorld(sx,sy){return{x:(sx-W/2)/zoom+camX,y:(sy-H/2)/zoom+camY};}
 
-// Sample a road into a dense polyline
-// segments[i]: null=straight, {cpx,cpy}=quadratic bezier control point
-function sampleRoad(road, stepsPerCurve=32){
-  const wps=road.waypoints, segs=road.segments;
+function sampleRoad(road,stepsPerCurve=32){
+  const wps=road.waypoints,segs=road.segments;
   if(wps.length<2)return wps.slice();
   const out=[];
   for(let i=0;i<wps.length-1;i++){
     const a=wps[i],b=wps[i+1],seg=segs[i];
     if(seg){
-      // Quadratic bezier a→cp→b
       for(let s=0;s<stepsPerCurve;s++){
         const t=s/stepsPerCurve,mt=1-t;
-        out.push({
-          x:mt*mt*a.x+2*mt*t*seg.cpx+t*t*b.x,
-          y:mt*mt*a.y+2*mt*t*seg.cpy+t*t*b.y,
-        });
+        out.push({x:mt*mt*a.x+2*mt*t*seg.cpx+t*t*b.x,y:mt*mt*a.y+2*mt*t*seg.cpy+t*t*b.y});
       }
-    } else {
-      out.push({x:a.x,y:a.y});
-    }
+    } else { out.push({x:a.x,y:a.y}); }
   }
   out.push(wps[wps.length-1]);
   return out;
+}
+
+// Build native canvas path — canvas handles joins/bezier geometry perfectly
+function buildRoadPath(road,c){
+  c=c||ctx;
+  const wps=road.waypoints,segs=road.segments;
+  if(wps.length<2)return;
+  c.beginPath();c.moveTo(wps[0].x,wps[0].y);
+  for(let i=0;i<wps.length-1;i++){
+    const b=wps[i+1],seg=segs[i];
+    if(seg) c.quadraticCurveTo(seg.cpx,seg.cpy,b.x,b.y);
+    else    c.lineTo(b.x,b.y);
+  }
 }
 
 function polyLen(pts){
@@ -304,7 +293,6 @@ function polyLen(pts){
   for(let i=1;i<pts.length;i++){const dx=pts[i].x-pts[i-1].x,dy=pts[i].y-pts[i-1].y;l+=Math.sqrt(dx*dx+dy*dy);}
   return l;
 }
-
 function polyAt(pts,t){
   const total=polyLen(pts);
   let target=total*Math.max(0,Math.min(1,t)),acc=0;
@@ -319,8 +307,6 @@ function polyAt(pts,t){
   }
   return{...pts[pts.length-1],angle:0};
 }
-
-// Perpendicular offset polyline
 function offsetPoly(pts,off){
   if(pts.length<2)return pts.map(p=>({x:p.x+off,y:p.y}));
   return pts.map((pt,i)=>{
@@ -329,11 +315,135 @@ function offsetPoly(pts,off){
     else if(i===pts.length-1){dx=pt.x-pts[i-1].x;dy=pt.y-pts[i-1].y;}
     else{dx=pts[i+1].x-pts[i-1].x;dy=pts[i+1].y-pts[i-1].y;}
     const len=Math.sqrt(dx*dx+dy*dy)||1;
-    return{x:pt.x+(-dy/len)*off, y:pt.y+(dx/len)*off};
+    return{x:pt.x+(-dy/len)*off,y:pt.y+(dx/len)*off};
   });
 }
-
 function getRoadType(id){return ROAD_TYPES.find(r=>r.id===id)||ROAD_TYPES[0];}
+
+// ═══════════════════════════════════════════════════
+//  INTERSECTION DETECTION  (body-crossing, any angle)
+// ═══════════════════════════════════════════════════
+const SNAP=14; // endpoint snap radius (world units)
+
+// Segment–segment intersection test. Returns {x,y,tA,tB} or null.
+function segIntersect(ax,ay,bx,by,cx,cy,dx,dy){
+  const ex=bx-ax,ey=by-ay,fx=dx-cx,fy=dy-cy;
+  const denom=ex*fy-ey*fx;
+  if(Math.abs(denom)<1e-10)return null; // parallel
+  const gx=cx-ax,gy=cy-ay;
+  const tA=(gx*fy-gy*fx)/denom;
+  const tB=(gx*ey-gy*ex)/denom;
+  if(tA<0||tA>1||tB<0||tB>1)return null;
+  return{x:ax+tA*ex,y:ay+tA*ey,tA,tB};
+}
+
+// Find all places where two polylines cross; return [{x,y,angA,angB}]
+function polyCrossings(ptsA,ptsB){
+  const hits=[];
+  for(let i=0;i<ptsA.length-1;i++){
+    for(let j=0;j<ptsB.length-1;j++){
+      const h=segIntersect(ptsA[i].x,ptsA[i].y,ptsA[i+1].x,ptsA[i+1].y,
+                           ptsB[j].x,ptsB[j].y,ptsB[j+1].x,ptsB[j+1].y);
+      if(h){
+        const angA=Math.atan2(ptsA[i+1].y-ptsA[i].y,ptsA[i+1].x-ptsA[i].x);
+        const angB=Math.atan2(ptsB[j+1].y-ptsB[j].y,ptsB[j+1].x-ptsB[j].x);
+        hits.push({x:h.x,y:h.y,angA,angB});
+      }
+    }
+  }
+  return hits;
+}
+
+// Merge crossing points that are very close (same physical junction hit twice)
+function mergeCrossings(list,threshold=8){
+  const out=[];
+  list.forEach(c=>{
+    const near=out.find(o=>{const dx=o.x-c.x,dy=o.y-c.y;return dx*dx+dy*dy<threshold*threshold;});
+    if(!near)out.push({...c});
+  });
+  return out;
+}
+
+// Master: returns [{x,y,hwA,hwB,angA,angB}] for every pair of roads
+function computeIntersections(roadList){
+  const results=[];
+  for(let i=0;i<roadList.length;i++){
+    for(let j=i+1;j<roadList.length;j++){
+      const rA=roadList[i],rB=roadList[j];
+      const rtA=getRoadType(rA.typeId),rtB=getRoadType(rB.typeId);
+      const spA=sampleRoad(rA,60),spB=sampleRoad(rB,60);
+      const crossings=mergeCrossings(polyCrossings(spA,spB));
+      crossings.forEach(c=>{
+        results.push({x:c.x,y:c.y,hwA:rtA.totalWidth/2,hwB:rtB.totalWidth/2,angA:c.angA,angB:c.angB,roadA:rA,roadB:rB});
+      });
+    }
+  }
+  return results;
+}
+
+// ─── Draw one crossing patch ────────────────────────────────────────────────
+// Strategy: clip-fill the parallelogram formed by the two road bands crossing.
+// We stroke the native path of each road at the crossing — but the cleanest
+// approach for arbitrary angles is: fill the convex hull of the 4 corner
+// intersection points of the two road rectangles, then re-draw the road
+// surface on top.  This gives an exact fill regardless of angle.
+
+function roadCorners(cx,cy,hw,ang){
+  // Returns 4 corners of the road rectangle centered at cx,cy
+  // width=hw*2 along ang, infinite length — but we just need the 4 "width" vectors
+  const px=Math.cos(ang),py=Math.sin(ang);   // along road
+  const nx=-py,ny=px;                          // perpendicular (road width)
+  // We project ±hw in the perp direction; for length we use a big number
+  // but actually we only need the 4 corners of the CROSSING PATCH,
+  // which is the intersection of two infinite bands. That's a parallelogram.
+  return{px,py,nx:nx*hw,ny:ny*hw};
+}
+
+// Intersection of two infinite bands → parallelogram vertices
+// Band A: center line through (cx,cy) at angA, half-width hwA
+// Band B: center line through (cx,cy) at angB, half-width hwB
+function crossingPatch(cx,cy,hwA,angA,hwB,angB){
+  // direction vectors
+  const dAx=Math.cos(angA),dAy=Math.sin(angA);
+  const nAx=-dAy*hwA,nAy=dAx*hwA; // perp offset for road A
+  const dBx=Math.cos(angB),dBy=Math.sin(angB);
+  const nBx=-dBy*hwB,nBy=dBx*hwB; // perp offset for road B
+
+  // The patch is bounded by 4 lines:
+  //   A's left edge, A's right edge, B's left edge, B's right edge
+  // Its 4 vertices are the 4 pairwise intersections of those edges.
+  // Edge A+: through (cx+nAx, cy+nAy) in dir dA
+  // Edge A-: through (cx-nAx, cy-nAy) in dir dA
+  // Edge B+: through (cx+nBx, cy+nBy) in dir dB
+  // Edge B-: through (cx-nBx, cy-nBy) in dir dB
+
+  function lineLineIntersect(ox,oy,dx,dy,px,py,qx,qy){
+    // line1: (ox,oy)+t*(dx,dy)  line2: (px,py)+s*(qx,qy)
+    const denom=dx*qy-dy*qx;
+    if(Math.abs(denom)<1e-10)return null;
+    const t=((px-ox)*qy-(py-oy)*qx)/denom;
+    return{x:ox+t*dx,y:oy+t*dy};
+  }
+  const verts=[];
+  const edgesA=[
+    {ox:cx+nAx,oy:cy+nAy,dx:dAx,dy:dAy},
+    {ox:cx-nAx,oy:cy-nAy,dx:dAx,dy:dAy},
+  ];
+  const edgesB=[
+    {ox:cx+nBx,oy:cy+nBy,dx:dBx,dy:dBy},
+    {ox:cx-nBx,oy:cy-nBy,dx:dBx,dy:dBy},
+  ];
+  for(const a of edgesA)for(const b of edgesB){
+    const v=lineLineIntersect(a.ox,a.oy,a.dx,a.dy,b.ox,b.oy,b.dx,b.dy);
+    if(v)verts.push(v);
+  }
+  if(verts.length<3)return null;
+  // Sort by angle around centroid for correct polygon winding
+  const mx=verts.reduce((s,v)=>s+v.x,0)/verts.length;
+  const my=verts.reduce((s,v)=>s+v.y,0)/verts.length;
+  verts.sort((a,b)=>Math.atan2(a.y-my,a.x-mx)-Math.atan2(b.y-my,b.x-mx));
+  return verts;
+}
 
 // ═══════════════════════════════════════════════════
 //  DRAWING
@@ -350,36 +460,35 @@ function drawRoad(road){
   const rt=getRoadType(road.typeId);
   const wps=road.waypoints;
   if(wps.length<2)return;
-
   const spine=sampleRoad(road,40);
   const hw=rt.totalWidth/2;
+  ctx.save();ctx.lineJoin='round';
 
-  ctx.save();
-  ctx.lineCap='round';ctx.lineJoin='round';
+  // 1. Outline (border) — butt caps = square road ends; round join = smooth corners
+  buildRoadPath(road);
+  ctx.strokeStyle=ROAD_EDGE;ctx.lineWidth=rt.totalWidth+2.4;
+  ctx.lineCap='butt';ctx.stroke();
 
-  // 1. Road body — round joins naturally handled by lineJoin=round
-  ctx.strokeStyle=ROAD_SURFACE;
-  ctx.lineWidth=rt.totalWidth;
-  strokePoly(spine);
+  // 2. Road body — same butt caps
+  buildRoadPath(road);
+  ctx.strokeStyle=ROAD_SURFACE;ctx.lineWidth=rt.totalWidth;
+  ctx.lineCap='butt';ctx.stroke();
 
-  // 2. Special lane fills
+  // 3. Special lane fills (bike/bus) interior offset polys
   let lOff=-hw;
   rt.lanes.forEach(lane=>{
     const lw=LANE_W[lane.type];
     if(lane.type==='bike'||lane.type==='bus'){
       const ol=offsetPoly(spine,lOff+lw/2);
       ctx.strokeStyle=lane.type==='bike'?'#b8d9b3':'#e8d0d0';
-      ctx.lineWidth=lw;
-      ctx.lineCap='butt';
-      strokePoly(ol);
-      ctx.lineCap='round';
+      ctx.lineWidth=lw;ctx.lineCap='butt';
+      strokePoly(ol);ctx.lineCap='round';
     }
     lOff+=lw;
   });
 
-  // 3. Lane dividers
-  lOff=-hw;
-  ctx.lineCap='butt';
+  // 4. Lane dividers
+  lOff=-hw;ctx.lineCap='butt';
   rt.lanes.forEach((lane,li)=>{
     const lw=LANE_W[lane.type];
     if(li<rt.lanes.length-1){
@@ -388,8 +497,7 @@ function drawRoad(road){
       if(isCenter){
         [-1.2,1.2].forEach(yo=>{
           const yl=offsetPoly(spine,divOff+yo);
-          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.2;ctx.setLineDash([]);
-          strokePoly(yl);
+          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.5;ctx.setLineDash([]);strokePoly(yl);
         });
       } else {
         const dl=offsetPoly(spine,divOff);
@@ -399,30 +507,78 @@ function drawRoad(road){
     }
     lOff+=lw;
   });
+  ctx.setLineDash([]);
 
-  // 4. Edge lines
-  ctx.setLineDash([]);ctx.lineCap='round';
-  [-hw,hw].forEach(off=>{
-    const el=offsetPoly(spine,off);
-    ctx.strokeStyle=ROAD_EDGE;ctx.lineWidth=1.2;
-    strokePoly(el);
-  });
-
-  // 5. Street name at true midpoint
+  // 5. Street name
   if(road.name){
     const mid=polyAt(spine,0.5);
-    let ang=mid.angle;
-    if(ang>Math.PI/2||ang<-Math.PI/2)ang+=Math.PI;
-    ctx.save();
-    ctx.translate(mid.x,mid.y);ctx.rotate(ang);
-    ctx.font='500 9px "DM Sans",sans-serif';
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.lineWidth=3;
-    ctx.strokeText(road.name.toUpperCase(),0,0);
-    ctx.fillStyle='rgba(80,70,60,0.9)';
-    ctx.fillText(road.name.toUpperCase(),0,0);
+    let ang=mid.angle;if(ang>Math.PI/2||ang<-Math.PI/2)ang+=Math.PI;
+    ctx.save();ctx.translate(mid.x,mid.y);ctx.rotate(ang);
+    ctx.font='500 9px "DM Sans",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.lineWidth=3;ctx.strokeText(road.name.toUpperCase(),0,0);
+    ctx.fillStyle='rgba(80,70,60,0.9)';ctx.fillText(road.name.toUpperCase(),0,0);
     ctx.restore();
   }
+  ctx.restore();
+}
+
+
+// Draw lane markings (yellow centerline / white dashes) through an intersection patch
+// Uses canvas clip to restrict drawing to just the patch polygon
+function drawIntersectionMarkings(ix,patchVerts){
+  if(!patchVerts||patchVerts.length<3)return;
+
+  // Helper: draw markings for one road's angle through the center of the patch
+  function markingsForRoad(hw,ang,rt){
+    if(!rt)return;
+    const lOff0=-hw;
+    const dx=Math.cos(ang),dy=Math.sin(ang);
+    // Extend a line well past the patch in both directions
+    const FAR=200;
+    const cx=ix.x,cy=ix.y;
+
+    // Lane dividers
+    let lOff=lOff0;
+    const nx=-dy,ny=dx; // perp to road
+    rt.lanes.forEach((lane,li)=>{
+      const lw=LANE_W[lane.type];
+      lOff+=lw;
+      if(li<rt.lanes.length-1){
+        const isCenter=rt.twoWay&&li===Math.floor(rt.lanes.length/2)-1;
+        // Offset point
+        const ox=cx+nx*lOff, oy=cy+ny*lOff;
+        if(isCenter){
+          [-1.2,1.2].forEach(yo=>{
+            const ox2=ox+nx*yo,oy2=oy+ny*yo;
+            ctx.beginPath();
+            ctx.moveTo(ox2-dx*FAR,oy2-dy*FAR);
+            ctx.lineTo(ox2+dx*FAR,oy2+dy*FAR);
+            ctx.strokeStyle=YELLOW;ctx.lineWidth=1.5;ctx.setLineDash([]);ctx.stroke();
+          });
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(ox-dx*FAR,oy-dy*FAR);
+          ctx.lineTo(ox+dx*FAR,oy+dy*FAR);
+          ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=1;
+          ctx.setLineDash([10,10]);ctx.stroke();ctx.setLineDash([]);
+        }
+      }
+    });
+  }
+
+  ctx.save();
+  // Clip to patch polygon
+  ctx.beginPath();
+  ctx.moveTo(patchVerts[0].x,patchVerts[0].y);
+  for(let i=1;i<patchVerts.length;i++)ctx.lineTo(patchVerts[i].x,patchVerts[i].y);
+  ctx.closePath();ctx.clip();
+
+  // Draw markings for road A
+  const rtA=ix.roadA?getRoadType(ix.roadA.typeId):null;
+  if(rtA)markingsForRoad(ix.hwA,ix.angA,rtA);
+  // Draw markings for road B
+  const rtB=ix.roadB?getRoadType(ix.roadB.typeId):null;
+  if(rtB)markingsForRoad(ix.hwB,ix.angB,rtB);
 
   ctx.restore();
 }
@@ -433,72 +589,66 @@ function drawRoad(road){
 function drawBuildOverlay(){
   if(!currentRoad)return;
   const wps=currentRoad.waypoints;
-  const segs=currentRoad.segments;
 
-  // Draw partial road (completed segments)
   if(wps.length>=2) drawRoad(currentRoad);
 
   const mw=screenToWorld(mouseX,mouseY);
   const last=wps[wps.length-1];
 
-  if(curveMode && wps.length>=2){
-    // The segment we're curving is the LAST completed segment: wps[n-2] → wps[n-1]
+  if(curveMode&&wps.length>=2){
     const a=wps[wps.length-2];
     const b=wps[wps.length-1];
+    const midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;
+    const cpx=mw.x,cpy=mw.y;
 
-    // Default control point = midpoint between a and b
-    // Mouse drags it: cp moves toward mouse from that midpoint
-    const midX=(a.x+b.x)/2, midY=(a.y+b.y)/2;
-    // Control point IS the mouse position (constrained to reasonable range)
-    const cpx=mw.x, cpy=mw.y;
-
-    // Sample preview curve
-    const STEPS=40;
-    const preview=[];
-    for(let s=0;s<=STEPS;s++){
-      const t=s/STEPS,mt=1-t;
-      preview.push({
-        x:mt*mt*a.x+2*mt*t*cpx+t*t*b.x,
-        y:mt*mt*a.y+2*mt*t*cpy+t*t*b.y,
-      });
-    }
-
+    // Build a temporary road with the live control point for a real preview
     const rt=getRoadType(currentRoad.typeId);
+    const previewRoad={
+      typeId:currentRoad.typeId,
+      waypoints:currentRoad.waypoints.slice(),
+      segments:currentRoad.segments.slice()
+    };
+    // Override the last segment with the live cp
+    previewRoad.segments[wps.length-2]={cpx,cpy};
 
-    // Draw preview road width
     ctx.save();
-    ctx.strokeStyle='rgba(245,166,35,0.55)';
-    ctx.lineWidth=rt.totalWidth;
-    ctx.lineCap='round';ctx.lineJoin='round';
-    ctx.beginPath();
-    ctx.moveTo(preview[0].x,preview[0].y);
-    for(let i=1;i<preview.length;i++)ctx.lineTo(preview[i].x,preview[i].y);
-    ctx.stroke();
+    ctx.globalAlpha=0.5;
+    drawRoad(previewRoad);
+    ctx.globalAlpha=1;
 
-    // Control handle line: midpoint → cp
-    ctx.strokeStyle='rgba(245,166,35,0.85)';
-    ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    // Control handle
+    ctx.strokeStyle='rgba(245,166,35,0.85)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
     ctx.beginPath();ctx.moveTo(midX,midY);ctx.lineTo(cpx,cpy);ctx.stroke();
     ctx.setLineDash([]);
-
-    // Midpoint anchor
     ctx.beginPath();ctx.arc(midX,midY,4,0,Math.PI*2);
     ctx.fillStyle='rgba(245,166,35,0.5)';ctx.fill();
-
-    // Handle dot at mouse
     ctx.beginPath();ctx.arc(cpx,cpy,5,0,Math.PI*2);
     ctx.fillStyle='#f5a623';ctx.fill();
     ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
     ctx.restore();
 
   } else {
-    // Preview line to next click
+    // Preview line to next click (or auto-curve arc if started from body snap)
     ctx.save();
-    ctx.strokeStyle='rgba(74,128,245,0.45)';
-    ctx.lineWidth=1.5;ctx.setLineDash([6,6]);ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(mw.x,mw.y);ctx.stroke();
-    ctx.setLineDash([]);
-
+    if(currentRoad._startSnap){
+      // Show the tangent-curved preview
+      const sn=currentRoad._startSnap;
+      const p0=last;
+      const dist=Math.sqrt((mw.x-p0.x)**2+(mw.y-p0.y)**2);
+      const blend=dist*0.38;
+      const cpx=p0.x+Math.cos(sn.tangentAngle)*blend;
+      const cpy=p0.y+Math.sin(sn.tangentAngle)*blend;
+      ctx.strokeStyle='rgba(74,128,245,0.45)';
+      ctx.lineWidth=getRoadType(currentRoad.typeId).totalWidth*0.4;
+      ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(p0.x,p0.y);
+      ctx.quadraticCurveTo(cpx,cpy,mw.x,mw.y);ctx.stroke();
+    } else {
+      ctx.strokeStyle='rgba(74,128,245,0.45)';
+      ctx.lineWidth=1.5;ctx.setLineDash([6,6]);ctx.lineCap='round';
+      ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(mw.x,mw.y);ctx.stroke();
+      ctx.setLineDash([]);
+    }
     const dist=Math.sqrt((mw.x-last.x)**2+(mw.y-last.y)**2);
     if(dist>10){
       const lx=(last.x+mw.x)/2,ly=(last.y+mw.y)/2;
@@ -512,12 +662,60 @@ function drawBuildOverlay(){
     ctx.restore();
   }
 
+  // Snap indicator
+  const snapTarget=findSnapTarget(mw);
+  if(snapTarget){
+    ctx.save();
+    ctx.beginPath();ctx.arc(snapTarget.x,snapTarget.y,8,0,Math.PI*2);
+    ctx.strokeStyle=snapTarget.onBody?'#f5a623':'#4a80f5';
+    ctx.lineWidth=2;ctx.stroke();
+    ctx.restore();
+  }
+
   // Waypoint dots
   wps.forEach((wp,i)=>{
     ctx.beginPath();ctx.arc(wp.x,wp.y,i===0?6:4,0,Math.PI*2);
     ctx.fillStyle=i===0?'#4a80f5':'#4caf50';
     ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
   });
+}
+
+// ═══════════════════════════════════════════════════
+//  SNAP HELPER
+// ═══════════════════════════════════════════════════
+// Project point P onto segment AB, return closest point and distance²
+function closestPointOnSegment(px,py,ax,ay,bx,by){
+  const dx=bx-ax,dy=by-ay;
+  const lenSq=dx*dx+dy*dy;
+  if(lenSq<1e-10)return{x:ax,y:ay,d2:(px-ax)**2+(py-ay)**2};
+  const t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/lenSq));
+  const cx=ax+t*dx,cy=ay+t*dy;
+  return{x:cx,y:cy,d2:(px-cx)**2+(py-cy)**2};
+}
+
+function findSnapTarget(worldPos){
+  const SNAP2=SNAP*SNAP;
+  let best=null,bestD2=SNAP2;
+
+  for(const r of roads){
+    // 1. Endpoint snaps (higher priority — check first at tighter radius)
+    for(const wp of[r.waypoints[0],r.waypoints[r.waypoints.length-1]]){
+      const d2=(wp.x-worldPos.x)**2+(wp.y-worldPos.y)**2;
+      if(d2<bestD2){bestD2=d2;best={x:wp.x,y:wp.y,onBody:false};}
+    }
+    // 2. Body snap — sample the road spine and check each segment
+    const spine=sampleRoad(r,40);
+    for(let i=0;i<spine.length-1;i++){
+      const cp=closestPointOnSegment(worldPos.x,worldPos.y,
+        spine[i].x,spine[i].y,spine[i+1].x,spine[i+1].y);
+      if(cp.d2<bestD2){
+        bestD2=cp.d2;
+        const ang=Math.atan2(spine[i+1].y-spine[i].y,spine[i+1].x-spine[i].x);
+        best={x:cp.x,y:cp.y,onBody:true,tangentAngle:ang,road:r};
+      }
+    }
+  }
+  return best;
 }
 
 // ═══════════════════════════════════════════════════
@@ -536,69 +734,68 @@ function drawGrid(){
 //  INPUT
 // ═══════════════════════════════════════════════════
 const nameInput=document.getElementById('nameInput');
-
 document.addEventListener('keydown',e=>{
   if(document.activeElement===nameInput)return;
   keys[e.key]=true;
-
   const numMap={'1':0,'2':1,'3':2,'4':3,'5':4,'6':5,'7':6,'8':7,'9':8,'0':9};
-  if(numMap[e.key]!==undefined&&!buildMode){
-    const rt=ROAD_TYPES[numMap[e.key]];if(rt)selectType(rt.id);return;
-  }
-
+  if(numMap[e.key]!==undefined&&!buildMode){const rt=ROAD_TYPES[numMap[e.key]];if(rt)selectType(rt.id);return;}
   if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();return;}
   if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='Z'))){e.preventDefault();redo();return;}
-
   if(e.key===' '){
     e.preventDefault();
-    if(buildMode&&currentRoad&&currentRoad.waypoints.length>=2){
-      finishRoad();
-    } else if(buildMode&&!currentRoad){
-      buildMode=false;curveMode=false;toast('Navigate mode');
-    } else if(!buildMode){
-      buildMode=true;toast('Build mode');
-    }
+    if(buildMode&&currentRoad&&currentRoad.waypoints.length>=2){finishRoad();}
+    else if(buildMode&&!currentRoad){buildMode=false;curveMode=false;toast('Navigate mode');}
+    else if(!buildMode){buildMode=true;toast('Build mode');}
     updateTopbar();
   }
-
-  if(e.key==='Escape'){
-    currentRoad=null;buildMode=false;curveMode=false;updateTopbar();
-  }
-
-  // V — toggle curve mode on last segment (need 2+ waypoints)
+  if(e.key==='Escape'){currentRoad=null;buildMode=false;curveMode=false;updateTopbar();}
   if((e.key==='v'||e.key==='V')&&buildMode&&currentRoad&&currentRoad.waypoints.length>=2){
     curveMode=!curveMode;
-    toast(curveMode?'Curve mode — move mouse, click to set':'Curve cancelled');
+    toast(curveMode?'Curve mode — move mouse to bend, click to set':'Curve cancelled');
     updateTopbar();
   }
-
   if(e.key==='i'||e.key==='I'){zoom=Math.min(zoom*1.15,6);updateTopbar();}
   if(e.key==='o'||e.key==='O'){zoom=Math.max(zoom/1.15,0.1);updateTopbar();}
 });
-
 document.addEventListener('keyup',e=>{keys[e.key]=false;});
 canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY;});
 
 canvas.addEventListener('click',e=>{
   if(!buildMode)return;
-  const w=screenToWorld(e.clientX,e.clientY);
+  const raw=screenToWorld(e.clientX,e.clientY);
+  const snap=findSnapTarget(raw);
+  const w=snap||raw;
 
   if(!currentRoad){
-    currentRoad={typeId:selectedTypeId,waypoints:[{x:w.x,y:w.y}],segments:[],name:''};
+    currentRoad={typeId:selectedTypeId,waypoints:[{x:w.x,y:w.y}],segments:[],name:'',
+      // Store body snap info so the first segment can be auto-curved
+      _startSnap: (snap&&snap.onBody) ? snap : null
+    };
+    updateTopbar();return;
+  }
+  if(curveMode&&currentRoad.waypoints.length>=2){
+    const si=currentRoad.waypoints.length-2;
+    currentRoad.segments[si]={cpx:w.x,cpy:w.y};
+    curveMode=false;toast('Curve set');updateTopbar();return;
+  }
+
+  // If this is the second waypoint and we started on a body snap, auto-insert
+  // a smooth tangent departure curve on the first segment
+  if(currentRoad.waypoints.length===1 && currentRoad._startSnap){
+    const sn=currentRoad._startSnap;
+    const p0=currentRoad.waypoints[0];
+    const p1={x:w.x,y:w.y};
+    // Control point: offset from start along the road tangent by ~1/3 of distance
+    const dist=Math.sqrt((p1.x-p0.x)**2+(p1.y-p0.y)**2);
+    const blend=dist*0.38;
+    const cpx=p0.x+Math.cos(sn.tangentAngle)*blend;
+    const cpy=p0.y+Math.sin(sn.tangentAngle)*blend;
+    currentRoad.waypoints.push(p1);
+    currentRoad.segments.push({cpx,cpy});
+    currentRoad._startSnap=null;
     updateTopbar();return;
   }
 
-  if(curveMode&&currentRoad.waypoints.length>=2){
-    // Set the last segment's control point to mouse position
-    const si=currentRoad.waypoints.length-2;
-    currentRoad.segments[si]={cpx:w.x,cpy:w.y};
-    curveMode=false;
-    toast('Curve set — click to add next point');
-    updateTopbar();
-    return;
-  }
-
-  // Normal: add waypoint
   currentRoad.waypoints.push({x:w.x,y:w.y});
   currentRoad.segments.push(null);
   updateTopbar();
@@ -625,7 +822,6 @@ function finishRoad(){
   namingRoad=currentRoad;currentRoad=null;curveMode=false;buildMode=false;
   updateTopbar();
 }
-
 nameInput.addEventListener('keydown',e=>{
   if(e.key==='Enter'||e.key==='Escape'){
     if(namingRoad){
@@ -654,19 +850,44 @@ function loop(){
   ctx.save();
   ctx.translate(W/2-camX*zoom,H/2-camY*zoom);
   ctx.scale(zoom,zoom);
+
+  // Compute true body-crossing intersections
+  const intersections=computeIntersections(roads);
+
+  // Helper: fill a polygon patch on ctx
+  function fillPatch(verts,color){
+    if(!verts||verts.length<3)return;
+    ctx.beginPath();ctx.moveTo(verts[0].x,verts[0].y);
+    for(let i=1;i<verts.length;i++)ctx.lineTo(verts[i].x,verts[i].y);
+    ctx.closePath();ctx.fillStyle=color;ctx.fill();
+  }
+
+  // Pass 1 — all roads
   roads.forEach(r=>drawRoad(r));
+
+  // Pass 2 — intersection patches: edge border first, then surface on top
+  // This exactly mirrors how drawRoad works (outline stroke then surface stroke)
+  // so the patch blends seamlessly with no orphan border ring.
+  intersections.forEach(ix=>{
+    // Edge patch (slightly wider, matches road outline width)
+    const vertsEdge=crossingPatch(ix.x,ix.y,ix.hwA+1.2,ix.angA,ix.hwB+1.2,ix.angB);
+    fillPatch(vertsEdge,ROAD_EDGE);
+    // Surface patch
+    const verts=crossingPatch(ix.x,ix.y,ix.hwA,ix.angA,ix.hwB,ix.angB);
+    fillPatch(verts,ROAD_SURFACE);
+    // Redraw lane markings through the intersection patch for both roads
+    drawIntersectionMarkings(ix,verts);
+  });
+
   drawBuildOverlay();
   ctx.restore();
 
   requestAnimationFrame(loop);
 }
 
-window.addEventListener('resize',()=>{
-  W=window.innerWidth;H=window.innerHeight;
-  canvas.width=W;canvas.height=H;
-});
-
+window.addEventListener('resize',()=>{W=window.innerWidth;H=window.innerHeight;canvas.width=W;canvas.height=H;});
 updateTopbar();
 loop();
 </script>
 </body>
+</html>
