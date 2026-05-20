@@ -274,25 +274,39 @@ function drawPreview(cvs,rt){
     if(lane.type==='bike')  {c.fillStyle='#b8d9b3';c.fillRect(x,y0,lw,roadH);}
     if(lane.type==='bus')   {c.fillStyle='#e8d0d0';c.fillRect(x,y0,lw,roadH);}
     if(lane.type==='median'){
-      // Draw chevrons in preview
+      // Draw median with diagonal hatch fill + double yellow border lines (NYC style)
       c.fillStyle=ROAD_SURFACE;c.fillRect(x,y0,lw,roadH);
-      const nx=rt.lanes[i+1];const pv=i>0?rt.lanes[i-1]:null;
-      // yellow borders
-      c.strokeStyle=YELLOW;c.lineWidth=1;c.setLineDash([]);
-      c.beginPath();c.moveTo(x,y0);c.lineTo(x,y0+roadH);c.stroke();
-      c.beginPath();c.moveTo(x+lw,y0);c.lineTo(x+lw,y0+roadH);c.stroke();
-      // chevron
-      const my=(y0+y0+roadH)/2;
-      c.strokeStyle=YELLOW;c.lineWidth=1;c.lineCap='round';
-      c.beginPath();c.moveTo(x+1,my+3);c.lineTo(x+lw/2,my-3);c.lineTo(x+lw-1,my+3);c.stroke();
+      // Diagonal hatch
+      c.save();c.beginPath();c.rect(x+1,y0,lw-2,roadH);c.clip();
+      c.strokeStyle=YELLOW;c.lineWidth=0.8;c.setLineDash([]);c.lineCap='butt';
+      const step=4;
+      for(let hy=y0-lw;hy<y0+roadH+lw;hy+=step){
+        c.beginPath();c.moveTo(x,hy);c.lineTo(x+lw,hy+lw);c.stroke();
+      }
+      c.restore();
+      // Double yellow lines on each edge (NYC median style)
+      c.strokeStyle=YELLOW;c.lineWidth=0.8;c.setLineDash([]);
+      [x+0.6,x+1.8].forEach(lx=>{
+        c.beginPath();c.moveTo(lx,y0);c.lineTo(lx,y0+roadH);c.stroke();
+      });
+      [x+lw-1.8,x+lw-0.6].forEach(lx=>{
+        c.beginPath();c.moveTo(lx,y0);c.lineTo(lx,y0+roadH);c.stroke();
+      });
     }
     if(i<rt.lanes.length-1 && lane.type!=='median' && rt.lanes[i+1].type!=='median'){
       const isC=rt.twoWay&&i===Math.floor(rt.lanes.length/2)-1;
       const isPkg=(lane.type==='parking'||rt.lanes[i+1].type==='parking');
-      c.strokeStyle=isC?YELLOW:'#fff';c.lineWidth=isC?1.5:.8;
-      c.setLineDash(isPkg||isC?[]:[3,3]);
-      c.beginPath();c.moveTo(x+lw,y0);c.lineTo(x+lw,y0+roadH);c.stroke();
-      c.setLineDash([]);
+      if(isC){
+        // Double yellow center line
+        c.strokeStyle=YELLOW;c.lineWidth=0.8;c.setLineDash([]);
+        c.beginPath();c.moveTo(x+lw-0.6,y0);c.lineTo(x+lw-0.6,y0+roadH);c.stroke();
+        c.beginPath();c.moveTo(x+lw+0.6,y0);c.lineTo(x+lw+0.6,y0+roadH);c.stroke();
+      } else {
+        c.strokeStyle='#fff';c.lineWidth=0.8;
+        c.setLineDash(isPkg?[]:[3,3]);
+        c.beginPath();c.moveTo(x+lw,y0);c.lineTo(x+lw,y0+roadH);c.stroke();
+        c.setLineDash([]);
+      }
     }
     x+=lw;
   });
@@ -631,12 +645,16 @@ function drawRoadDecorations(road){
       const isMedianEdge=(lane.type==='median'||nextLane.type==='median');
       const isCenter=rt.twoWay&&!isMedianEdge&&li===Math.floor(rt.lanes.length/2)-1;
       if(isMedianEdge){
-        const yl=offsetPoly(spine,divOff);
-        ctx.strokeStyle=YELLOW;ctx.lineWidth=2;ctx.setLineDash([]);strokePoly(yl);
-      } else if(isCenter){
-        [-1.2,1.2].forEach(yo=>{
+        // Double yellow lines flanking the median edge (NYC style)
+        [-1.0,0.4].forEach(yo=>{
           const yl=offsetPoly(spine,divOff+yo);
-          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.5;ctx.setLineDash([]);strokePoly(yl);
+          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.4;ctx.setLineDash([]);strokePoly(yl);
+        });
+      } else if(isCenter){
+        // Double yellow centerline
+        [-1.0,1.0].forEach(yo=>{
+          const yl=offsetPoly(spine,divOff+yo);
+          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.4;ctx.setLineDash([]);strokePoly(yl);
         });
       } else if(lane.type==='parking'||nextLane.type==='parking'){
         const dl=offsetPoly(spine,divOff);
@@ -684,32 +702,34 @@ function drawRoadDecorations(road){
     lOff+=lw;
   });
 
-  // ── BUS stencil: "ONLY" then "BUS" stacked, white text, spaced along lane ──
+  // ── BUS stencil: bold "BUS ONLY" rotated perpendicular, reads from curb ──
   lOff=-hw;
   rt.lanes.forEach((lane)=>{
     const lw=LANE_W[lane.type];
     if(lane.type==='bus'){
       const busOff=lOff+lw/2;
-      const stencilSpacing=110;
+      const stencilSpacing=90;
       const count=Math.max(1,Math.floor(totalLen/stencilSpacing));
       for(let s=0;s<count;s++){
         const t=(s+0.5)/count;
         const pt=polyAt(spine,t);
-        let ang=pt.angle;
-        if(lane.dir===-1) ang+=Math.PI;
+        // Text reads perpendicular to road direction (rotated 90° from travel)
+        // dir=-1 lanes read from right curb, dir=1 from left
+        let textAng=pt.angle+Math.PI/2;
+        if(lane.dir===-1) textAng+=Math.PI;
         const perp=pt.angle+Math.PI/2;
         const tx=pt.x+Math.cos(perp)*busOff;
         const ty=pt.y+Math.sin(perp)*busOff;
         ctx.save();
-        ctx.translate(tx,ty);ctx.rotate(ang);
-        // "ONLY" small above
-        ctx.font='500 4px "DM Sans",sans-serif';
+        ctx.translate(tx,ty);ctx.rotate(textAng);
         ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillStyle='rgba(255,255,255,0.92)';
-        ctx.fillText('ONLY',0,-4.5);
-        // "BUS" large below
-        ctx.font='bold 7px "DM Sans",sans-serif';
+        // "BUS" large
+        ctx.font='bold 6.5px "DM Sans",sans-serif';
+        ctx.fillStyle='rgba(255,255,255,0.95)';
         ctx.fillText('BUS',0,2);
+        // "ONLY" small above
+        ctx.font='600 4px "DM Sans",sans-serif';
+        ctx.fillText('ONLY',0,-4);
         ctx.restore();
       }
     }
@@ -724,21 +744,27 @@ function drawRoadLabel(road){
   if(!road.name)return;
   const spine=sampleRoad(road,40);
   const totalLen=polyLen(spine);
-  if(totalLen<30)return;
+  if(totalLen<40)return;
 
-  // Repeat the label every ~150 world-units along the road
-  const spacing=150;
-  const count=Math.max(1,Math.round(totalLen/spacing));
+  const text=road.name.toUpperCase();
+  ctx.font='500 9px "DM Sans",sans-serif';
+  const textW=ctx.measureText(text).width;
+  // Minimum gap between label centers = text width + generous padding
+  const minGap=textW+28;
+  // How many fit?
+  const count=Math.max(1,Math.floor(totalLen/Math.max(minGap,120)));
+
   ctx.save();
   for(let i=0;i<count;i++){
     const t=(i+0.5)/count;
     const pt=polyAt(spine,t);
     let ang=pt.angle;if(ang>Math.PI/2||ang<-Math.PI/2)ang+=Math.PI;
     ctx.save();ctx.translate(pt.x,pt.y);ctx.rotate(ang);
-    ctx.font='500 9px "DM Sans",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=3;
-    ctx.strokeText(road.name.toUpperCase(),0,0);
-    ctx.fillStyle='rgba(80,70,60,0.9)';ctx.fillText(road.name.toUpperCase(),0,0);
+    ctx.font='500 9px "DM Sans",sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.strokeStyle='rgba(255,255,255,0.78)';ctx.lineWidth=3;
+    ctx.strokeText(text,0,0);
+    ctx.fillStyle='rgba(70,60,50,0.92)';ctx.fillText(text,0,0);
     ctx.restore();
   }
   ctx.restore();
