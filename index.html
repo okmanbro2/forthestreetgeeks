@@ -320,6 +320,22 @@ function offsetPoly(pts,off){
 }
 function getRoadType(id){return ROAD_TYPES.find(r=>r.id===id)||ROAD_TYPES[0];}
 
+// Build a canvas clip path that exactly follows a road's body outline.
+// extraHw expands (or contracts) the clip beyond the nominal half-width.
+// Two consecutive buildBodyClip+clip calls intersect → just the overlap area.
+function buildBodyClip(road,extraHw){
+  const rt=getRoadType(road.typeId);
+  const hw=rt.totalWidth/2+(extraHw||0);
+  const spine=sampleRoad(road,60);
+  const left=offsetPoly(spine,-hw);
+  const right=[...offsetPoly(spine,hw)].reverse();
+  ctx.beginPath();
+  ctx.moveTo(left[0].x,left[0].y);
+  for(let i=1;i<left.length;i++)ctx.lineTo(left[i].x,left[i].y);
+  for(const p of right)ctx.lineTo(p.x,p.y);
+  ctx.closePath();
+}
+
 // ═══════════════════════════════════════════════════
 //  INTERSECTION DETECTION  (body-crossing, any angle)
 // ═══════════════════════════════════════════════════
@@ -456,25 +472,29 @@ function strokePoly(pts,c){
   c.stroke();
 }
 
-function drawRoad(road){
+// Pass A — outline + surface only (no decorations, no labels)
+function drawRoadBase(road){
   const rt=getRoadType(road.typeId);
-  const wps=road.waypoints;
-  if(wps.length<2)return;
+  if(road.waypoints.length<2)return;
+  ctx.save();ctx.lineJoin='round';
+  buildRoadPath(road);
+  ctx.strokeStyle=ROAD_EDGE;ctx.lineWidth=rt.totalWidth+2.4;
+  ctx.lineCap='butt';ctx.stroke();
+  buildRoadPath(road);
+  ctx.strokeStyle=ROAD_SURFACE;ctx.lineWidth=rt.totalWidth;
+  ctx.lineCap='butt';ctx.stroke();
+  ctx.restore();
+}
+
+// Pass B — bike/bus fills + lane dividers only
+function drawRoadDecorations(road){
+  const rt=getRoadType(road.typeId);
+  if(road.waypoints.length<2)return;
   const spine=sampleRoad(road,40);
   const hw=rt.totalWidth/2;
   ctx.save();ctx.lineJoin='round';
 
-  // 1. Outline (border) — butt caps = square road ends; round join = smooth corners
-  buildRoadPath(road);
-  ctx.strokeStyle=ROAD_EDGE;ctx.lineWidth=rt.totalWidth+2.4;
-  ctx.lineCap='butt';ctx.stroke();
-
-  // 2. Road body — same butt caps
-  buildRoadPath(road);
-  ctx.strokeStyle=ROAD_SURFACE;ctx.lineWidth=rt.totalWidth;
-  ctx.lineCap='butt';ctx.stroke();
-
-  // 3. Special lane fills (bike/bus) interior offset polys
+  // 3. Special lane fills (bike/bus)
   let lOff=-hw;
   rt.lanes.forEach(lane=>{
     const lw=LANE_W[lane.type];
@@ -508,80 +528,43 @@ function drawRoad(road){
     lOff+=lw;
   });
   ctx.setLineDash([]);
+  ctx.restore();
+}
 
-  // 5. Street name
-  if(road.name){
-    const mid=polyAt(spine,0.5);
-    let ang=mid.angle;if(ang>Math.PI/2||ang<-Math.PI/2)ang+=Math.PI;
-    ctx.save();ctx.translate(mid.x,mid.y);ctx.rotate(ang);
+// Pass D — street name labels, rendered LAST so they sit on top of everything
+function drawRoadLabel(road){
+  if(!road.name)return;
+  const spine=sampleRoad(road,40);
+  const totalLen=polyLen(spine);
+  if(totalLen<30)return;
+
+  // Repeat the label every ~150 world-units along the road
+  const spacing=150;
+  const count=Math.max(1,Math.round(totalLen/spacing));
+  ctx.save();
+  for(let i=0;i<count;i++){
+    const t=(i+0.5)/count;
+    const pt=polyAt(spine,t);
+    let ang=pt.angle;if(ang>Math.PI/2||ang<-Math.PI/2)ang+=Math.PI;
+    ctx.save();ctx.translate(pt.x,pt.y);ctx.rotate(ang);
     ctx.font='500 9px "DM Sans",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.strokeStyle='rgba(255,255,255,0.7)';ctx.lineWidth=3;ctx.strokeText(road.name.toUpperCase(),0,0);
+    ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=3;
+    ctx.strokeText(road.name.toUpperCase(),0,0);
     ctx.fillStyle='rgba(80,70,60,0.9)';ctx.fillText(road.name.toUpperCase(),0,0);
     ctx.restore();
   }
   ctx.restore();
 }
 
-
-// Draw lane markings (yellow centerline / white dashes) through an intersection patch
-// Uses canvas clip to restrict drawing to just the patch polygon
-function drawIntersectionMarkings(ix,patchVerts){
-  if(!patchVerts||patchVerts.length<3)return;
-
-  // Helper: draw markings for one road's angle through the center of the patch
-  function markingsForRoad(hw,ang,rt){
-    if(!rt)return;
-    const lOff0=-hw;
-    const dx=Math.cos(ang),dy=Math.sin(ang);
-    // Extend a line well past the patch in both directions
-    const FAR=200;
-    const cx=ix.x,cy=ix.y;
-
-    // Lane dividers
-    let lOff=lOff0;
-    const nx=-dy,ny=dx; // perp to road
-    rt.lanes.forEach((lane,li)=>{
-      const lw=LANE_W[lane.type];
-      lOff+=lw;
-      if(li<rt.lanes.length-1){
-        const isCenter=rt.twoWay&&li===Math.floor(rt.lanes.length/2)-1;
-        // Offset point
-        const ox=cx+nx*lOff, oy=cy+ny*lOff;
-        if(isCenter){
-          [-1.2,1.2].forEach(yo=>{
-            const ox2=ox+nx*yo,oy2=oy+ny*yo;
-            ctx.beginPath();
-            ctx.moveTo(ox2-dx*FAR,oy2-dy*FAR);
-            ctx.lineTo(ox2+dx*FAR,oy2+dy*FAR);
-            ctx.strokeStyle=YELLOW;ctx.lineWidth=1.5;ctx.setLineDash([]);ctx.stroke();
-          });
-        } else {
-          ctx.beginPath();
-          ctx.moveTo(ox-dx*FAR,oy-dy*FAR);
-          ctx.lineTo(ox+dx*FAR,oy+dy*FAR);
-          ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=1;
-          ctx.setLineDash([10,10]);ctx.stroke();ctx.setLineDash([]);
-        }
-      }
-    });
-  }
-
-  ctx.save();
-  // Clip to patch polygon
-  ctx.beginPath();
-  ctx.moveTo(patchVerts[0].x,patchVerts[0].y);
-  for(let i=1;i<patchVerts.length;i++)ctx.lineTo(patchVerts[i].x,patchVerts[i].y);
-  ctx.closePath();ctx.clip();
-
-  // Draw markings for road A
-  const rtA=ix.roadA?getRoadType(ix.roadA.typeId):null;
-  if(rtA)markingsForRoad(ix.hwA,ix.angA,rtA);
-  // Draw markings for road B
-  const rtB=ix.roadB?getRoadType(ix.roadB.typeId):null;
-  if(rtB)markingsForRoad(ix.hwB,ix.angB,rtB);
-
-  ctx.restore();
+// Full combined draw — used only for the build overlay preview
+function drawRoad(road){
+  drawRoadBase(road);
+  drawRoadDecorations(road);
+  drawRoadLabel(road);
 }
+
+
+
 
 // ═══════════════════════════════════════════════════
 //  BUILD OVERLAY
@@ -854,30 +837,40 @@ function loop(){
   // Compute true body-crossing intersections
   const intersections=computeIntersections(roads);
 
-  // Helper: fill a polygon patch on ctx
-  function fillPatch(verts,color){
-    if(!verts||verts.length<3)return;
-    ctx.beginPath();ctx.moveTo(verts[0].x,verts[0].y);
-    for(let i=1;i<verts.length;i++)ctx.lineTo(verts[i].x,verts[i].y);
-    ctx.closePath();ctx.fillStyle=color;ctx.fill();
-  }
+  // Pass 1 — road outlines + surfaces (no lane deco, no labels)
+  roads.forEach(r=>drawRoadBase(r));
 
-  // Pass 1 — all roads
-  roads.forEach(r=>drawRoad(r));
+  // Pass 2 — lane decorations (bike/bus fills, center lines, dashes)
+  //           drawn before patches so the patches erase them cleanly at crossings
+  roads.forEach(r=>drawRoadDecorations(r));
 
-  // Pass 2 — intersection patches: edge border first, then surface on top
-  // This exactly mirrors how drawRoad works (outline stroke then surface stroke)
-  // so the patch blends seamlessly with no orphan border ring.
+  // Pass 3 — intersection patches using actual road body shapes as clip regions.
+  //   buildBodyClip twice + ctx.clip() intersects the two clip regions so only
+  //   the true overlap area is filled — no parallelogram approximation, works
+  //   correctly for curved roads. Pairs are deduplicated so we don't double-fill
+  //   when two roads cross more than once.
+  const patchedPairs=new Set();
   intersections.forEach(ix=>{
-    // Edge patch (slightly wider, matches road outline width)
-    const vertsEdge=crossingPatch(ix.x,ix.y,ix.hwA+1.2,ix.angA,ix.hwB+1.2,ix.angB);
-    fillPatch(vertsEdge,ROAD_EDGE);
-    // Surface patch
-    const verts=crossingPatch(ix.x,ix.y,ix.hwA,ix.angA,ix.hwB,ix.angB);
-    fillPatch(verts,ROAD_SURFACE);
-    // Redraw lane markings through the intersection patch for both roads
-    drawIntersectionMarkings(ix,verts);
+    const idxA=roads.indexOf(ix.roadA),idxB=roads.indexOf(ix.roadB);
+    const key=Math.min(idxA,idxB)+'-'+Math.max(idxA,idxB);
+    if(patchedPairs.has(key))return;
+    patchedPairs.add(key);
+    // Edge ring (slightly wider than surface to form the road border)
+    ctx.save();
+    buildBodyClip(ix.roadA,1.2);ctx.clip();
+    buildBodyClip(ix.roadB,1.2);ctx.clip();
+    ctx.fillStyle=ROAD_EDGE;ctx.fillRect(-1e6,-1e6,2e6,2e6);
+    ctx.restore();
+    // Clean surface fill
+    ctx.save();
+    buildBodyClip(ix.roadA,0.5);ctx.clip();
+    buildBodyClip(ix.roadB,0.5);ctx.clip();
+    ctx.fillStyle=ROAD_SURFACE;ctx.fillRect(-1e6,-1e6,2e6,2e6);
+    ctx.restore();
   });
+
+  // Pass 4 — street name labels rendered on top of all geometry
+  roads.forEach(r=>drawRoadLabel(r));
 
   drawBuildOverlay();
   ctx.restore();
