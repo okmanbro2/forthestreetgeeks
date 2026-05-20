@@ -321,28 +321,115 @@ function polyAt(pts,t){
 }
 
 // Perpendicular offset polyline
-function offsetPoly(pts,off){
-  if(pts.length<2)return pts.map(p=>({x:p.x+off,y:p.y}));
-  return pts.map((pt,i)=>{
-    let dx,dy;
-    if(i===0){dx=pts[1].x-pt.x;dy=pts[1].y-pt.y;}
-    else if(i===pts.length-1){dx=pt.x-pts[i-1].x;dy=pt.y-pts[i-1].y;}
-    else{dx=pts[i+1].x-pts[i-1].x;dy=pts[i+1].y-pts[i-1].y;}
-    const len=Math.sqrt(dx*dx+dy*dy)||1;
-    return{x:pt.x+(-dy/len)*off, y:pt.y+(dx/len)*off};
-  });
+function lineIntersection(a1,a2,b1,b2){
+  const dax=a2.x-a1.x;
+  const day=a2.y-a1.y;
+  const dbx=b2.x-b1.x;
+  const dby=b2.y-b1.y;
+
+  const denom=dax*dby-day*dbx;
+  if(Math.abs(denom)<0.0001)return null;
+
+  const ua=((b1.x-a1.x)*dby-(b1.y-a1.y)*dbx)/denom;
+
+  return {
+    x:a1.x+ua*dax,
+    y:a1.y+ua*day,
+  };
 }
+
+function offsetPoly(pts,offset){
+  if(points.length<2)return points;
+
+  const result=[];
+
+  for(let i=0;i<points.length;i++){
+    const prev=points[Math.max(0,i-1)];
+    const curr=points[i];
+    const next=points[Math.min(points.length-1,i+1)];
+
+    let dx1=curr.x-prev.x;
+    let dy1=curr.y-prev.y;
+    let len1=Math.hypot(dx1,dy1)||1;
+    dx1/=len1;
+    dy1/=len1;
+
+    let dx2=next.x-curr.x;
+    let dy2=next.y-curr.y;
+    let len2=Math.hypot(dx2,dy2)||1;
+    dx2/=len2;
+    dy2/=len2;
+
+    const n1={x:-dy1,y:dx1};
+    const n2={x:-dy2,y:dx2};
+
+    if(i===0){
+      result.push({
+        x:curr.x+n2.x*offset,
+        y:curr.y+n2.y*offset,
+      });
+      continue;
+    }
+
+    if(i===points.length-1){
+      result.push({
+        x:curr.x+n1.x*offset,
+        y:curr.y+n1.y*offset,
+      });
+      continue;
+    }
+
+    const a1={
+      x:prev.x+n1.x*offset,
+      y:prev.y+n1.y*offset,
+    };
+
+    const a2={
+      x:curr.x+n1.x*offset,
+      y:curr.y+n1.y*offset,
+    };
+
+    const b1={
+      x:curr.x+n2.x*offset,
+      y:curr.y+n2.y*offset,
+    };
+
+    const b2={
+      x:next.x+n2.x*offset,
+      y:next.y+n2.y*offset,
+    };
+}
+
 
 function getRoadType(id){return ROAD_TYPES.find(r=>r.id===id)||ROAD_TYPES[0];}
 
 // ═══════════════════════════════════════════════════
 //  DRAWING
 // ═══════════════════════════════════════════════════
-function strokePoly(pts,c){
+function strokePoly(pts,c,skipIntersections=false){
   if(!pts||pts.length<2)return;
+
   c=c||ctx;
-  c.beginPath();c.moveTo(pts[0].x,pts[0].y);
-  for(let i=1;i<pts.length;i++)c.lineTo(pts[i].x,pts[i].y);
+
+  c.beginPath();
+
+  let started=false;
+
+  for(let i=0;i<pts.length;i++){
+
+    if(skipIntersections && nearIntersection(pts[i].x,pts[i].y)){
+      started=false;
+      continue;
+    }
+
+    if(!started){
+      c.moveTo(pts[i].x,pts[i].y);
+      started=true;
+    }else{
+      c.lineTo(pts[i].x,pts[i].y);
+    }
+  }
+
   c.stroke();
 }
 
@@ -355,7 +442,7 @@ function drawRoad(road){
   const hw=rt.totalWidth/2;
 
   ctx.save();
-  ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.lineCap='round';ctx.lineJoin='miter';ctx.miterLimit=3;
 
   // 1. Road body — round joins naturally handled by lineJoin=round
   ctx.strokeStyle=ROAD_SURFACE;
@@ -376,6 +463,17 @@ function drawRoad(road){
     }
     lOff+=lw;
   });
+  
+  function nearIntersection(x,y){
+  for(const i of intersections){
+    const dx=x-i.x;
+    const dy=y-i.y;
+
+    if(dx*dx+dy*dy<900)return true;
+  }
+
+  return false;
+}
 
   // 3. Lane dividers
   lOff=-hw;
@@ -389,12 +487,12 @@ function drawRoad(road){
         [-1.2,1.2].forEach(yo=>{
           const yl=offsetPoly(spine,divOff+yo);
           ctx.strokeStyle=YELLOW;ctx.lineWidth=1.2;ctx.setLineDash([]);
-          strokePoly(yl);
+          strokePoly(yl,ctx,true);
         });
       } else {
         const dl=offsetPoly(spine,divOff);
         ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=1;ctx.setLineDash([10,10]);
-        strokePoly(dl);ctx.setLineDash([]);
+        strokePoly(dl,ctx,true);ctx.setLineDash([]);
       }
     }
     lOff+=lw;
@@ -423,6 +521,84 @@ function drawRoad(road){
     ctx.fillText(road.name.toUpperCase(),0,0);
     ctx.restore();
   }
+
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+//  INTERSECTIONS
+// ═══════════════════════════════════════════════════
+
+let intersections=[];
+
+function segmentIntersection(a,b,c,d){
+  const r={x:b.x-a.x,y:b.y-a.y};
+  const s={x:d.x-c.x,y:d.y-c.y};
+
+  const denom=r.x*s.y-r.y*s.x;
+  if(Math.abs(denom)<0.00001)return null;
+
+  const u=((c.x-a.x)*r.y-(c.y-a.y)*r.x)/denom;
+  const t=((c.x-a.x)*s.y-(c.y-a.y)*s.x)/denom;
+
+  if(t>=0&&t<=1&&u>=0&&u<=1){
+    return {
+      x:a.x+t*r.x,
+      y:a.y+t*r.y,
+    };
+  }
+
+  return null;
+}
+
+function rebuildIntersections(){
+  intersections=[];
+
+  for(let i=0;i<roads.length;i++){
+    const roadA=roads[i];
+    const ptsA=sampleRoad(roadA,20);
+
+    for(let j=i+1;j<roads.length;j++){
+      const roadB=roads[j];
+      const ptsB=sampleRoad(roadB,20);
+
+      for(let a=0;a<ptsA.length-1;a++){
+        for(let b=0;b<ptsB.length-1;b++){
+
+          const hit=segmentIntersection(
+            ptsA[a],ptsA[a+1],
+            ptsB[b],ptsB[b+1]
+          );
+
+          if(hit){
+            intersections.push({
+              x:hit.x,
+              y:hit.y,
+              roads:[roadA,roadB],
+            });
+          }
+        }
+      }
+    }
+  }
+}
+
+function drawIntersection(intersection){
+
+  const widths=intersection.roads.map(r=>getRoadType(r.typeId).totalWidth);
+  const radius=Math.max(...widths)*0.85;
+
+  ctx.save();
+
+  ctx.fillStyle=ROAD_SURFACE;
+
+  ctx.beginPath();
+  ctx.arc(intersection.x,intersection.y,radius,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.strokeStyle=ROAD_EDGE;
+  ctx.lineWidth=1.5;
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -631,6 +807,7 @@ nameInput.addEventListener('keydown',e=>{
     if(namingRoad){
       namingRoad.name=nameInput.value.trim();
       saveUndo();roads.push(namingRoad);namingRoad=null;
+      rebuildIntersections();
     }
     nameInput.style.display='none';nameInput.value='';
     toast('Road placed!');updateTopbar();
@@ -655,6 +832,7 @@ function loop(){
   ctx.translate(W/2-camX*zoom,H/2-camY*zoom);
   ctx.scale(zoom,zoom);
   roads.forEach(r=>drawRoad(r));
+  intersections.forEach(i=>drawIntersection(i));
   drawBuildOverlay();
   ctx.restore();
 
