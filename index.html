@@ -107,7 +107,7 @@
 // ═══════════════════════════════════════════════════
 //  ROAD TYPES
 // ═══════════════════════════════════════════════════
-const LANE_W={through:12,bus:12,bike:8,parking:9,service:14,median:16};
+const LANE_W={through:12,bus:12,bike:8,parking:9,service:14,median:12};
 const ROAD_SURFACE='#d4d0cb', ROAD_EDGE='#b0aba4', YELLOW='#d4a017';
 
 // Groups: each group is a category (shown as one panel row) with multiple variants.
@@ -116,15 +116,98 @@ const ROAD_SURFACE='#d4d0cb', ROAD_EDGE='#b0aba4', YELLOW='#d4a017';
 const ROAD_GROUPS = [
   {
     key: '1', label: 'Two-Way', icon: '↔',
-    variants: [
-      {id:'twoway_std',      label:'Standard',           twoWay:true,  lanes:[{type:'through',dir:-1},{type:'through',dir:1}]},
-      {id:'twoway_pkg',      label:'+ Parking',          twoWay:true,  lanes:[{type:'parking',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'parking',dir:1}]},
-      {id:'twoway_bike',     label:'+ Bike',             twoWay:true,  lanes:[{type:'bike',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'bike',dir:1}]},
-      {id:'twoway_bus',      label:'+ Bus',              twoWay:true,  lanes:[{type:'bus',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'bus',dir:1}]},
-      {id:'twoway_median',   label:'Median',             twoWay:true,  lanes:[{type:'through',dir:-1},{type:'parking',dir:-1},{type:'median',dir:0},{type:'parking',dir:1},{type:'through',dir:1}]},
-      {id:'twoway_med_bike', label:'Median + Bike',      twoWay:true,  lanes:[{type:'bike',dir:-1},{type:'through',dir:-1},{type:'median',dir:0},{type:'through',dir:1},{type:'bike',dir:1}]},
-      {id:'twoway_med_bus',  label:'Median + Bus',       twoWay:true,  lanes:[{type:'bus',dir:-1},{type:'through',dir:-1},{type:'median',dir:0},{type:'through',dir:1},{type:'bus',dir:1}]},
+   variants: [
+  {
+    id:'twoway_std',
+    label:'Standard',
+    twoWay:true,
+    lanes:[
+      {type:'through',dir:-1},
+      {type:'through',dir:1}
     ]
+  },
+
+  {
+    id:'twoway_pkg',
+    label:'+ Parking',
+    twoWay:true,
+    lanes:[
+      {type:'parking',dir:-1},
+      {type:'through',dir:-1},
+      {type:'through',dir:1},
+      {type:'parking',dir:1}
+    ]
+  },
+
+  {
+    id:'twoway_bike',
+    label:'+ Bike',
+    twoWay:true,
+    lanes:[
+      {type:'bike',dir:-1},
+      {type:'through',dir:-1},
+      {type:'through',dir:1},
+      {type:'bike',dir:1}
+    ]
+  },
+
+  {
+    id:'twoway_bus',
+    label:'+ Bus',
+    twoWay:true,
+    lanes:[
+      {type:'bus',dir:-1},
+      {type:'through',dir:-1},
+      {type:'through',dir:1},
+      {type:'bus',dir:1}
+    ]
+  },
+
+  // ─────────────────────────────
+  // rebalance;
+  // parking/bike/bus moved outward
+  // through lanes now hug the median
+  // ─────────────────────────────
+
+  {
+    id:'twoway_median',
+    label:'Median',
+    twoWay:true,
+    lanes:[
+      {type:'parking',dir:-1},
+      {type:'through',dir:-1},
+      {type:'median',dir:0},
+      {type:'through',dir:1},
+      {type:'parking',dir:1}
+    ]
+  },
+
+  {
+    id:'twoway_med_bike',
+    label:'Median + Bike',
+    twoWay:true,
+    lanes:[
+      {type:'bike',dir:-1},
+      {type:'through',dir:-1},
+      {type:'median',dir:0},
+      {type:'through',dir:1},
+      {type:'bike',dir:1}
+    ]
+  },
+
+  {
+    id:'twoway_med_bus',
+    label:'Median + Bus',
+    twoWay:true,
+    lanes:[
+      {type:'bus',dir:-1},
+      {type:'through',dir:-1},
+      {type:'median',dir:0},
+      {type:'through',dir:1},
+      {type:'bus',dir:1}
+    ]
+  },
+]
   },
   {
     key: '2', label: 'One-Way', icon: '→',
