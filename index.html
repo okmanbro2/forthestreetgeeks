@@ -94,7 +94,7 @@
 <div id="topbar">
   <span class="mode-pill" id="modePill">NAVIGATE</span>
   <span class="mode-label" id="modeLabel">ForTheStreetGeeks</span>
-  <span class="hint" id="modeHint">SPACE=build · WASD=pan · I/O=zoom · Shift=fast</span>
+  <span class="hint" id="modeHint">SPACE=build · WASD=pan · 1/2/3=road group · P=cycle variant · I/O=zoom</span>
 </div>
 <input id="nameInput" type="text" placeholder="Street name (Enter to confirm)" maxlength="40"/>
 <div id="toast"></div>
@@ -107,22 +107,60 @@
 // ═══════════════════════════════════════════════════
 //  ROAD TYPES
 // ═══════════════════════════════════════════════════
-const LANE_W={through:12,bus:12,bike:8,parking:9,service:14};
+const LANE_W={through:12,bus:12,bike:8,parking:9,service:14,median:10};
 const ROAD_SURFACE='#d4d0cb', ROAD_EDGE='#b0aba4', YELLOW='#d4a017';
 
-const ROAD_TYPES=[
-  {id:'narrow_twoway',   label:'Narrow Two-Way',     twoWay:true,  lanes:[{type:'through',dir:-1},{type:'through',dir:1}]},
-  {id:'standard_twoway',label:'Standard Two-Way',    twoWay:true,  lanes:[{type:'parking',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'parking',dir:1}]},
-  {id:'twoway_bike',     label:'Two-Way + Bike',      twoWay:true,  lanes:[{type:'bike',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'bike',dir:1}]},
-  {id:'twoway_bus',      label:'Two-Way + Bus',       twoWay:true,  lanes:[{type:'bus',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'bus',dir:1}]},
-  {id:'oneway_narrow',   label:'One-Way Narrow',      twoWay:false, lanes:[{type:'through',dir:1}]},
-  {id:'oneway_standard', label:'One-Way (2 lanes)',   twoWay:false, lanes:[{type:'through',dir:1},{type:'through',dir:1}]},
-  {id:'avenue',          label:'Avenue (3 lanes)',    twoWay:false, lanes:[{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
-  {id:'avenue_bus',      label:'Avenue + Bus Lane',   twoWay:false, lanes:[{type:'bus',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
-  {id:'avenue_bus_bike', label:'Avenue + Bus + Bike', twoWay:false, lanes:[{type:'bike',dir:1},{type:'bus',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
-  {id:'alley',           label:'Alley / Service',     twoWay:true,  lanes:[{type:'service',dir:0}]},
+// Groups: each group is a category (shown as one panel row) with multiple variants.
+// P key cycles variants within the active group mid-road.
+// 1/2/3 keys select the group (and reset to variant 0).
+const ROAD_GROUPS = [
+  {
+    key: '1', label: 'Two-Way', icon: '↔',
+    variants: [
+      {id:'twoway_std',      label:'Standard',           twoWay:true,  lanes:[{type:'through',dir:-1},{type:'through',dir:1}]},
+      {id:'twoway_pkg',      label:'+ Parking',          twoWay:true,  lanes:[{type:'parking',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'parking',dir:1}]},
+      {id:'twoway_bike',     label:'+ Bike',             twoWay:true,  lanes:[{type:'bike',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'bike',dir:1}]},
+      {id:'twoway_bus',      label:'+ Bus',              twoWay:true,  lanes:[{type:'bus',dir:-1},{type:'through',dir:-1},{type:'through',dir:1},{type:'bus',dir:1}]},
+      {id:'twoway_median',   label:'Median',             twoWay:true,  lanes:[{type:'through',dir:-1},{type:'parking',dir:-1},{type:'median',dir:0},{type:'parking',dir:1},{type:'through',dir:1}]},
+      {id:'twoway_med_bike', label:'Median + Bike',      twoWay:true,  lanes:[{type:'bike',dir:-1},{type:'through',dir:-1},{type:'median',dir:0},{type:'through',dir:1},{type:'bike',dir:1}]},
+      {id:'twoway_med_bus',  label:'Median + Bus',       twoWay:true,  lanes:[{type:'bus',dir:-1},{type:'through',dir:-1},{type:'median',dir:0},{type:'through',dir:1},{type:'bus',dir:1}]},
+    ]
+  },
+  {
+    key: '2', label: 'One-Way', icon: '→',
+    variants: [
+      {id:'oneway_1',        label:'Narrow (1 lane)',    twoWay:false, lanes:[{type:'through',dir:1}]},
+      {id:'oneway_2',        label:'2 Lanes',            twoWay:false, lanes:[{type:'through',dir:1},{type:'through',dir:1}]},
+      {id:'oneway_pkg',      label:'2 Lanes + Parking',  twoWay:false, lanes:[{type:'parking',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'parking',dir:1}]},
+      {id:'oneway_bike',     label:'+ Bike Lane',        twoWay:false, lanes:[{type:'bike',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
+      {id:'oneway_bus',      label:'+ Bus Lane',         twoWay:false, lanes:[{type:'bus',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
+      {id:'oneway_bus_bike', label:'+ Bus + Bike',       twoWay:false, lanes:[{type:'bike',dir:1},{type:'bus',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
+    ]
+  },
+  {
+    key: '3', label: 'Avenue', icon: '⇉',
+    variants: [
+      {id:'avenue',          label:'3 Lanes',            twoWay:false, lanes:[{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
+      {id:'avenue_pkg',      label:'+ Parking',          twoWay:false, lanes:[{type:'parking',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'parking',dir:1}]},
+      {id:'avenue_bike',     label:'+ Bike Lane',        twoWay:false, lanes:[{type:'bike',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
+      {id:'avenue_bus',      label:'+ Bus Lane',         twoWay:false, lanes:[{type:'bus',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
+      {id:'avenue_bus_bike', label:'+ Bus + Bike',       twoWay:false, lanes:[{type:'bike',dir:1},{type:'bus',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
+    ]
+  },
 ];
+
+// Flatten for lookup
+const ROAD_TYPES = ROAD_GROUPS.flatMap(g=>g.variants);
 ROAD_TYPES.forEach(rt=>{ rt.totalWidth=rt.lanes.reduce((s,l)=>s+LANE_W[l.type],0); });
+
+function getRoadGroup(typeId){
+  for(const g of ROAD_GROUPS){ if(g.variants.find(v=>v.id===typeId)) return g; }
+  return ROAD_GROUPS[0];
+}
+function getVariantIndex(typeId){
+  const g=getRoadGroup(typeId);
+  return g.variants.findIndex(v=>v.id===typeId);
+}
 
 // ═══════════════════════════════════════════════════
 //  CANVAS / STATE
@@ -143,32 +181,84 @@ let currentRoad=null;
 let roads=[];
 let undoStack=[], redoStack=[];
 let selectedTypeId=ROAD_TYPES[0].id;
+let selectedGroupIdx=0; // which group is active
+let selectedVariantIdx=0; // which variant within group
 let namingRoad=null;
 
 // ═══════════════════════════════════════════════════
-//  PANEL
+//  PANEL — 3 group rows, each shows active variant
 // ═══════════════════════════════════════════════════
 const panel=document.getElementById('panel');
-const KEY_LABELS=['1','2','3','4','5','6','7','8','9','0'];
-ROAD_TYPES.forEach((rt,idx)=>{
+
+// Build one button per group
+const groupBtns=[];
+ROAD_GROUPS.forEach((grp,gi)=>{
   const btn=document.createElement('button');
-  btn.className='road-btn'+(rt.id===selectedTypeId?' active':'');
-  btn.dataset.id=rt.id;
+  btn.className='road-btn'+(gi===0?' active':'');
+  btn.dataset.gi=gi;
+
   const prev=document.createElement('canvas');
   prev.width=36;prev.height=22;prev.className='preview';
-  drawPreview(prev,rt);
-  const lbl=document.createElement('span');lbl.className='label';lbl.textContent=rt.label;
-  const badge=document.createElement('span');badge.className='key-badge';badge.textContent=KEY_LABELS[idx]||'';
-  btn.appendChild(prev);btn.appendChild(lbl);
-  if(KEY_LABELS[idx])btn.appendChild(badge);
-  btn.addEventListener('click',()=>selectType(rt.id));
+
+  const lbl=document.createElement('span');lbl.className='label';
+
+  const badge=document.createElement('span');
+  badge.className='key-badge';badge.textContent=grp.key;
+
+  btn.appendChild(prev);btn.appendChild(lbl);btn.appendChild(badge);
+  btn.addEventListener('click',()=>selectGroup(gi));
   panel.appendChild(btn);
+  groupBtns.push({btn,prev,lbl});
 });
 
+// Sub-label showing current variant name
+const variantLabel=document.createElement('div');
+variantLabel.style.cssText='font-size:10px;color:#888;padding:2px 8px 4px;font-family:"DM Mono",monospace;';
+panel.appendChild(variantLabel);
+
+function refreshPanel(){
+  ROAD_GROUPS.forEach((grp,gi)=>{
+    const vi = gi===selectedGroupIdx ? selectedVariantIdx : 0;
+    const rt=grp.variants[vi];
+    const {btn,prev,lbl}=groupBtns[gi];
+    btn.classList.toggle('active',gi===selectedGroupIdx);
+    lbl.textContent=grp.label;
+    drawPreview(prev,rt);
+  });
+  const grp=ROAD_GROUPS[selectedGroupIdx];
+  const rt=grp.variants[selectedVariantIdx];
+  variantLabel.textContent='▸ '+rt.label;
+}
+
+function selectGroup(gi,vi){
+  selectedGroupIdx=gi;
+  if(vi===undefined) vi=0;
+  selectedVariantIdx=vi;
+  selectedTypeId=ROAD_GROUPS[gi].variants[vi].id;
+  // If mid-road, change its type too
+  if(currentRoad) currentRoad.typeId=selectedTypeId;
+  refreshPanel();
+  const rt=ROAD_GROUPS[gi].variants[vi];
+  toast(ROAD_GROUPS[gi].label+' — '+rt.label);
+  updateTopbar();
+}
+
+function cycleVariant(){
+  // Cycle within current group
+  const grp=ROAD_GROUPS[selectedGroupIdx];
+  selectedVariantIdx=(selectedVariantIdx+1)%grp.variants.length;
+  selectedTypeId=grp.variants[selectedVariantIdx].id;
+  if(currentRoad) currentRoad.typeId=selectedTypeId;
+  refreshPanel();
+  toast(grp.label+' — '+grp.variants[selectedVariantIdx].label);
+  updateTopbar();
+}
+
 function selectType(id){
-  selectedTypeId=id;
-  document.querySelectorAll('.road-btn').forEach(b=>b.classList.toggle('active',b.dataset.id===id));
-  toast('Road: '+ROAD_TYPES.find(r=>r.id===id).label);
+  for(let gi=0;gi<ROAD_GROUPS.length;gi++){
+    const vi=ROAD_GROUPS[gi].variants.findIndex(v=>v.id===id);
+    if(vi>=0){selectGroup(gi,vi);return;}
+  }
 }
 
 function drawPreview(cvs,rt){
@@ -181,12 +271,26 @@ function drawPreview(cvs,rt){
   let x=startX;
   rt.lanes.forEach((lane,i)=>{
     const lw=LANE_W[lane.type]*scale;
-    if(lane.type==='bike'){c.fillStyle='#b8d9b3';c.fillRect(x,y0,lw,roadH);}
-    if(lane.type==='bus') {c.fillStyle='#e8d0d0';c.fillRect(x,y0,lw,roadH);}
-    if(i<rt.lanes.length-1){
+    if(lane.type==='bike')  {c.fillStyle='#b8d9b3';c.fillRect(x,y0,lw,roadH);}
+    if(lane.type==='bus')   {c.fillStyle='#e8d0d0';c.fillRect(x,y0,lw,roadH);}
+    if(lane.type==='median'){
+      // Draw chevrons in preview
+      c.fillStyle=ROAD_SURFACE;c.fillRect(x,y0,lw,roadH);
+      const nx=rt.lanes[i+1];const pv=i>0?rt.lanes[i-1]:null;
+      // yellow borders
+      c.strokeStyle=YELLOW;c.lineWidth=1;c.setLineDash([]);
+      c.beginPath();c.moveTo(x,y0);c.lineTo(x,y0+roadH);c.stroke();
+      c.beginPath();c.moveTo(x+lw,y0);c.lineTo(x+lw,y0+roadH);c.stroke();
+      // chevron
+      const my=(y0+y0+roadH)/2;
+      c.strokeStyle=YELLOW;c.lineWidth=1;c.lineCap='round';
+      c.beginPath();c.moveTo(x+1,my+3);c.lineTo(x+lw/2,my-3);c.lineTo(x+lw-1,my+3);c.stroke();
+    }
+    if(i<rt.lanes.length-1 && lane.type!=='median' && rt.lanes[i+1].type!=='median'){
       const isC=rt.twoWay&&i===Math.floor(rt.lanes.length/2)-1;
+      const isPkg=(lane.type==='parking'||rt.lanes[i+1].type==='parking');
       c.strokeStyle=isC?YELLOW:'#fff';c.lineWidth=isC?1.5:.8;
-      c.setLineDash(isC?[]:[3,3]);
+      c.setLineDash(isPkg||isC?[]:[3,3]);
       c.beginPath();c.moveTo(x+lw,y0);c.lineTo(x+lw,y0+roadH);c.stroke();
       c.setLineDash([]);
     }
@@ -231,7 +335,7 @@ function updateTopbar(){
   } else {
     modePill.className='mode-pill';modePill.textContent='NAVIGATE';
     modeLabel.textContent='ForTheStreetGeeks';
-    modeHint.textContent='SPACE=build · WASD=pan · I/O or scroll=zoom · Shift=fast · Ctrl+Z/Y';
+    modeHint.textContent='SPACE=build · WASD/arrows=pan · I/O/scroll=zoom · 1/2/3=group · P=cycle · Shift=fast · Ctrl+Z/Y';
   }
   zoomLabel.textContent=Math.round(zoom*100)+'%';
   btnUndo.disabled=undoStack.length===0;
@@ -486,7 +590,7 @@ function drawRoadBase(road){
   ctx.restore();
 }
 
-// Pass B — bike/bus fills + lane dividers only
+// Pass B — lane fills, dividers, median hatching, BUS stencil
 function drawRoadDecorations(road){
   const rt=getRoadType(road.typeId);
   if(road.waypoints.length<2)return;
@@ -608,6 +712,12 @@ function drawRoadDecorations(road){
         ctx.fillText('BUS',0,2);
         ctx.restore();
       }
+    }
+    lOff+=lw;
+  });
+
+  ctx.restore();
+}
 
 // Pass D — street name labels, rendered LAST so they sit on top of everything
 function drawRoadLabel(road){
@@ -798,8 +908,11 @@ const nameInput=document.getElementById('nameInput');
 document.addEventListener('keydown',e=>{
   if(document.activeElement===nameInput)return;
   keys[e.key]=true;
-  const numMap={'1':0,'2':1,'3':2,'4':3,'5':4,'6':5,'7':6,'8':7,'9':8,'0':9};
-  if(numMap[e.key]!==undefined&&!buildMode){const rt=ROAD_TYPES[numMap[e.key]];if(rt)selectType(rt.id);return;}
+  // 1/2/3 = select group; P = cycle variant within group
+  if(e.key==='1'){selectGroup(0);return;}
+  if(e.key==='2'){selectGroup(1);return;}
+  if(e.key==='3'){selectGroup(2);return;}
+  if(e.key==='p'||e.key==='P'){cycleVariant();return;}
   if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();return;}
   if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='Z'))){e.preventDefault();redo();return;}
   if(e.key===' '){
@@ -953,6 +1066,7 @@ function loop(){
 }
 
 window.addEventListener('resize',()=>{W=window.innerWidth;H=window.innerHeight;canvas.width=W;canvas.height=H;});
+refreshPanel();
 updateTopbar();
 loop();
 </script>
