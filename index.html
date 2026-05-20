@@ -855,13 +855,9 @@ function loop(){
     const key=Math.min(idxA,idxB)+'-'+Math.max(idxA,idxB);
     if(patchedPairs.has(key))return;
     patchedPairs.add(key);
-    // Edge ring (slightly wider than surface to form the road border)
-    ctx.save();
-    buildBodyClip(ix.roadA,1.2);ctx.clip();
-    buildBodyClip(ix.roadB,1.2);ctx.clip();
-    ctx.fillStyle=ROAD_EDGE;ctx.fillRect(-1e6,-1e6,2e6,2e6);
-    ctx.restore();
-    // Clean surface fill
+    // Surface fill only — road borders at the intersection boundary come naturally
+    // from the Pass-1 outline strokes; adding a ROAD_EDGE ring here paints dark
+    // lines across whichever road the other road crosses, causing the visible outline.
     ctx.save();
     buildBodyClip(ix.roadA,0.5);ctx.clip();
     buildBodyClip(ix.roadB,0.5);ctx.clip();
