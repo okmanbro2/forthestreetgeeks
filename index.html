@@ -713,6 +713,12 @@ function drawRoadDecorations(road){
         ctx.restore();
       }
     }
+    lOff+=lw;
+  });
+
+  ctx.restore();
+}
+
 // Pass D — street name labels, rendered LAST so they sit on top of everything
 function drawRoadLabel(road){
   if(!road.name)return;
