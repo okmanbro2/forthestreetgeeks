@@ -321,7 +321,7 @@ function polyAt(pts,t){
 }
 
 // Perpendicular offset polyline
-function lineIntersection(a1,a2,b1,b2){
+function offsetLineIntersection(a1,a2,b1,b2){
   const dax=a2.x-a1.x;
   const day=a2.y-a1.y;
   const dbx=b2.x-b1.x;
@@ -338,68 +338,117 @@ function lineIntersection(a1,a2,b1,b2){
   };
 }
 
-function offsetPoly(pts,offset){
+function lineIntersection(a1,a2,b1,b2){
+  const dax=a2.x-a1.x;
+  const day=a2.y-a1.y;
+  const dbx=b2.x-b1.x;
+  const dby=b2.y-b1.y;
+
+  const denom=dax*dby-day*dbx;
+
+  if(Math.abs(denom)<0.0001)return null;
+
+  const ua=((b1.x-a1.x)*dby-(b1.y-a1.y)*dbx)/denom;
+
+  return {
+    x:a1.x+ua*dax,
+    y:a1.y+ua*day
+  };
+}
+
+function offsetPoly(points,offset){
+
   if(points.length<2)return points;
 
   const result=[];
 
   for(let i=0;i<points.length;i++){
+
     const prev=points[Math.max(0,i-1)];
     const curr=points[i];
     const next=points[Math.min(points.length-1,i+1)];
 
     let dx1=curr.x-prev.x;
     let dy1=curr.y-prev.y;
+
     let len1=Math.hypot(dx1,dy1)||1;
+
     dx1/=len1;
     dy1/=len1;
 
     let dx2=next.x-curr.x;
     let dy2=next.y-curr.y;
+
     let len2=Math.hypot(dx2,dy2)||1;
+
     dx2/=len2;
     dy2/=len2;
 
     const n1={x:-dy1,y:dx1};
     const n2={x:-dy2,y:dx2};
 
+    // start
     if(i===0){
+
       result.push({
         x:curr.x+n2.x*offset,
-        y:curr.y+n2.y*offset,
+        y:curr.y+n2.y*offset
       });
+
       continue;
     }
 
+    // end
     if(i===points.length-1){
+
       result.push({
         x:curr.x+n1.x*offset,
-        y:curr.y+n1.y*offset,
+        y:curr.y+n1.y*offset
       });
+
       continue;
     }
 
+    // offset segment A
     const a1={
       x:prev.x+n1.x*offset,
-      y:prev.y+n1.y*offset,
+      y:prev.y+n1.y*offset
     };
 
     const a2={
       x:curr.x+n1.x*offset,
-      y:curr.y+n1.y*offset,
+      y:curr.y+n1.y*offset
     };
 
+    // offset segment B
     const b1={
       x:curr.x+n2.x*offset,
-      y:curr.y+n2.y*offset,
+      y:curr.y+n2.y*offset
     };
 
     const b2={
       x:next.x+n2.x*offset,
-      y:next.y+n2.y*offset,
+      y:next.y+n2.y*offset
     };
-}
 
+    const hit=offsetLineIntersection(a1,a2,b1,b2);
+
+    if(hit){
+
+      result.push(hit);
+
+    }else{
+
+      result.push({
+        x:curr.x+(n1.x+n2.x)*0.5*offset,
+        y:curr.y+(n1.y+n2.y)*0.5*offset
+      });
+
+    }
+  }
+
+  return result;
+}
 
 function getRoadType(id){return ROAD_TYPES.find(r=>r.id===id)||ROAD_TYPES[0];}
 
