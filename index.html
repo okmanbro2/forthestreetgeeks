@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -431,7 +431,7 @@ function updateTopbar(){
     }
   } else {
     modePill.className='mode-pill';modePill.textContent='NAVIGATE';
-    modeLabel.textContent='ForTheStreetGeeks';
+    modeLabel.textContent='STREET GEEK';
     modeHint.textContent='SPACE=build · WASD/arrows=pan · I/O/scroll=zoom · 1/2/3=group · P=cycle · Shift=fast · Ctrl+Z/Y';
   }
   zoomLabel.textContent=Math.round(zoom*100)+'%';
@@ -534,27 +534,6 @@ function buildBodyClip(road,extraHw){
   ctx.moveTo(left[0].x,left[0].y);
   for(let i=1;i<left.length;i++)ctx.lineTo(left[i].x,left[i].y);
   for(const p of right)ctx.lineTo(p.x,p.y);
-  ctx.closePath();
-}
-
-function buildLaneBandClip(road, offA, offB){
-  const spine = sampleRoad(road, 140);
-
-  const left  = offsetPoly(spine, offA);
-  const right = offsetPoly(spine, offB).reverse();
-
-  ctx.beginPath();
-
-  ctx.moveTo(left[0].x, left[0].y);
-
-  for(let i = 1; i < left.length; i++){
-    ctx.lineTo(left[i].x, left[i].y);
-  }
-
-  for(let i = 0; i < right.length; i++){
-    ctx.lineTo(right[i].x, right[i].y);
-  }
-
   ctx.closePath();
 }
 
@@ -689,17 +668,8 @@ function crossingPatch(cx,cy,hwA,angA,hwB,angB){
 function strokePoly(pts,c){
   if(!pts||pts.length<2)return;
   c=c||ctx;
-
-  c.lineJoin='round';
-  c.lineCap='round';
-
-  c.beginPath();
-  c.moveTo(pts[0].x,pts[0].y);
-
-  for(let i=1;i<pts.length;i++){
-    c.lineTo(pts[i].x,pts[i].y);
-  }
-
+  c.beginPath();c.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++)c.lineTo(pts[i].x,pts[i].y);
   c.stroke();
 }
 
@@ -739,12 +709,10 @@ function fillLaneBand(spine, offA, offB, color, alpha){
 function drawRoadDecorations(road){
   const rt=getRoadType(road.typeId);
   if(road.waypoints.length<2)return;
-  const spine=sampleRoad(road,140);
+  const spine=sampleRoad(road,40);
   const hw=rt.totalWidth/2;
   const totalLen=polyLen(spine);
-  ctx.save();
-  ctx.lineJoin='round';
-  ctx.lineCap='round';
+  ctx.save();ctx.lineJoin='round';
 
   // ── Lane fills (polygon-based, no stroke artifacts on curves) ──
   let lOff=-hw;
@@ -757,64 +725,35 @@ function drawRoadDecorations(road){
   });
 
   // ── Lane dividers ──
-  lOff = -hw;
-
-  rt.lanes.forEach((lane, li)=>{
-    const lw = LANE_W[lane.type];
-    if(li < rt.lanes.length - 1){
-      const divOff = lOff + lw;
-      const nextLane = rt.lanes[li + 1];
-      const isMedianEdge =
-        lane.type === 'median' ||
-        nextLane.type === 'median';
-      const isCenter =
-        rt.twoWay &&
-        !isMedianEdge &&
-        li === Math.floor(rt.lanes.length / 2) - 1;
-      // ─────────────────────────────
-      // DOUBLE YELLOW
-      // ─────────────────────────────
-      if(isMedianEdge || isCenter){
-        [-1.2, 1.2].forEach((yo)=>{
-          ctx.save();
-          buildLaneBandClip(
-            road,
-            divOff + yo - 0.8,
-            divOff + yo + 0.8
-          );
-          ctx.clip();
-          buildRoadPath(road);
-          ctx.strokeStyle = YELLOW;
-          ctx.lineWidth = 2;
-          ctx.lineJoin = 'round';
-          ctx.lineCap = 'round';
-          ctx.setLineDash([]);
-          ctx.stroke();
-          ctx.restore();
+  lOff=-hw;ctx.lineCap='butt';
+  rt.lanes.forEach((lane,li)=>{
+    const lw=LANE_W[lane.type];
+    if(li<rt.lanes.length-1){
+      const divOff=lOff+lw;
+      const nextLane=rt.lanes[li+1];
+      const isMedianEdge=(lane.type==='median'||nextLane.type==='median');
+      const isCenter=rt.twoWay&&!isMedianEdge&&li===Math.floor(rt.lanes.length/2)-1;
+      if(isMedianEdge){
+        // Two yellow lines tight against each side of median edge
+        [-1.0,0.6].forEach(yo=>{
+          const yl=offsetPoly(spine,divOff+yo);
+          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.2;ctx.setLineDash([]);strokePoly(yl);
         });
-      }
-      // ─────────────────────────────
-      // WHITE DASHED DIVIDERS
-      // ─────────────────────────────
-      else {
-        ctx.save();
-        buildLaneBandClip(
-          road,
-          divOff - 0.6,
-          divOff + 0.6
-        );
-        ctx.clip();
-        buildRoadPath(road);
-        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-        ctx.lineWidth = 1.5;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        ctx.setLineDash([10,10]);
-        ctx.stroke();
-        ctx.restore();
+      } else if(isCenter){
+        [-1.0,1.0].forEach(yo=>{
+          const yl=offsetPoly(spine,divOff+yo);
+          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.2;ctx.setLineDash([]);strokePoly(yl);
+        });
+      } else if(lane.type==='parking'||nextLane.type==='parking'){
+        const dl=offsetPoly(spine,divOff);
+        ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.lineWidth=1;ctx.setLineDash([]);strokePoly(dl);
+      } else {
+        const dl=offsetPoly(spine,divOff);
+        ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=1;ctx.setLineDash([10,10]);
+        strokePoly(dl);ctx.setLineDash([]);
       }
     }
-    lOff += lw;
+    lOff+=lw;
   });
   ctx.setLineDash([]);
 
@@ -825,10 +764,10 @@ function drawRoadDecorations(road){
     if(lane.type==='median'){
       const medCenterOff=lOff+lw/2;
       const innerHw=lw/2-1.5;
-      const stripeGap=8;  // spacing along road between stripe starts
+      const stripeGap=12;  // spacing along road between stripe starts
       const skew=lw*0.9;   // diagonal offset — how far forward left edge is vs right
       const stripeCount=Math.max(2,Math.floor(totalLen/stripeGap));
-      ctx.strokeStyle=YELLOW;ctx.lineWidth=0.85;ctx.lineCap='butt';ctx.setLineDash([]);
+      ctx.strokeStyle=YELLOW;ctx.lineWidth=1;ctx.lineCap='butt';ctx.setLineDash([]);
       for(let h=0;h<stripeCount;h++){
         const t=h/stripeCount;
         const pt=polyAt(spine,t);
@@ -882,7 +821,7 @@ function drawRoadDecorations(road){
 // Pass D — street name labels, rendered LAST so they sit on top of everything
 function drawRoadLabel(road){
   if(!road.name)return;
-  const spine=sampleRoad(road,140);
+  const spine=sampleRoad(road,40);
   const totalLen=polyLen(spine);
   if(totalLen<40)return;
 
