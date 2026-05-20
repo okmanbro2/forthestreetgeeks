@@ -274,7 +274,7 @@ function drawPreview(cvs,rt){
     if(lane.type==='bike')  {c.fillStyle='#b8d9b3';c.fillRect(x,y0,lw,roadH);}
     if(lane.type==='bus')   {c.fillStyle='#e8d0d0';c.fillRect(x,y0,lw,roadH);}
     if(lane.type==='median'){
-      // Draw median with diagonal hatch fill + double yellow border lines (NYC style)
+      // Draw median with diagonal hatch fill + double yellow border lines
       c.fillStyle=ROAD_SURFACE;c.fillRect(x,y0,lw,roadH);
       // Diagonal hatch
       c.save();c.beginPath();c.rect(x+1,y0,lw-2,roadH);c.clip();
@@ -284,7 +284,7 @@ function drawPreview(cvs,rt){
         c.beginPath();c.moveTo(x,hy);c.lineTo(x+lw,hy+lw);c.stroke();
       }
       c.restore();
-      // Double yellow lines on each edge (NYC median style)
+      // Double yellow lines on each edge
       c.strokeStyle=YELLOW;c.lineWidth=0.8;c.setLineDash([]);
       [x+0.6,x+1.8].forEach(lx=>{
         c.beginPath();c.moveTo(lx,y0);c.lineTo(lx,y0+roadH);c.stroke();
@@ -645,7 +645,7 @@ function drawRoadDecorations(road){
       const isMedianEdge=(lane.type==='median'||nextLane.type==='median');
       const isCenter=rt.twoWay&&!isMedianEdge&&li===Math.floor(rt.lanes.length/2)-1;
       if(isMedianEdge){
-        // Double yellow lines flanking the median edge (NYC style)
+        // Double yellow lines flanking the median edge
         [-1.0,0.4].forEach(yo=>{
           const yl=offsetPoly(spine,divOff+yo);
           ctx.strokeStyle=YELLOW;ctx.lineWidth=1.4;ctx.setLineDash([]);strokePoly(yl);
