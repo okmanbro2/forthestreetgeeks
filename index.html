@@ -107,7 +107,7 @@
 // ═══════════════════════════════════════════════════
 //  ROAD TYPES
 // ═══════════════════════════════════════════════════
-const LANE_W={through:12,bus:12,bike:8,parking:9,service:14,median:10};
+const LANE_W={through:12,bus:12,bike:8,parking:9,service:14,median:16};'
 const ROAD_SURFACE='#d4d0cb', ROAD_EDGE='#b0aba4', YELLOW='#d4a017';
 
 // Groups: each group is a category (shown as one panel row) with multiple variants.
@@ -605,63 +605,68 @@ function drawRoadBase(road){
 }
 
 // Pass B — lane fills, dividers, median hatching, BUS stencil
+// Helper: fill a lane band as a polygon (left-side offsetPoly + right-side reversed)
+// This avoids the butt-stroke artifacts on curves for colored lane fills.
+function fillLaneBand(spine, offA, offB, color, alpha){
+  if(spine.length<2)return;
+  const left=offsetPoly(spine,offA);
+  const right=offsetPoly(spine,offB);
+  ctx.save();
+  ctx.globalAlpha=alpha||1;
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(left[0].x,left[0].y);
+  for(let i=1;i<left.length;i++)ctx.lineTo(left[i].x,left[i].y);
+  for(let i=right.length-1;i>=0;i--)ctx.lineTo(right[i].x,right[i].y);
+  ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+
+// Pass B — lane fills, dividers, median hatching, BUS stencil
 function drawRoadDecorations(road){
   const rt=getRoadType(road.typeId);
   if(road.waypoints.length<2)return;
   const spine=sampleRoad(road,40);
   const hw=rt.totalWidth/2;
   const totalLen=polyLen(spine);
-  ctx.save();ctx.lineJoin='round';
+  ctx.save();ctx.lineJoin=\'round\';
 
-  // ── Lane fills ──
+  // ── Lane fills (polygon-based, no stroke artifacts on curves) ──
   let lOff=-hw;
   rt.lanes.forEach((lane)=>{
     const lw=LANE_W[lane.type];
-    const cOff=lOff+lw/2;
-    if(lane.type==='bike'){
-      const ol=offsetPoly(spine,cOff);
-      ctx.strokeStyle='#b8d9b3';ctx.lineWidth=lw;ctx.lineCap='butt';strokePoly(ol);
-    }
-    if(lane.type==='bus'){
-      // Red bus lane fill
-      const ol=offsetPoly(spine,cOff);
-      ctx.strokeStyle='#c8503a';ctx.lineWidth=lw;ctx.lineCap='butt';
-      ctx.globalAlpha=0.55;strokePoly(ol);ctx.globalAlpha=1;
-    }
-    if(lane.type==='median'){
-      const ol=offsetPoly(spine,cOff);
-      ctx.strokeStyle=ROAD_SURFACE;ctx.lineWidth=lw;ctx.lineCap='butt';strokePoly(ol);
-    }
+    if(lane.type===\'bike\')   fillLaneBand(spine,lOff,lOff+lw,\'#b8d9b3\');
+    if(lane.type===\'bus\')    fillLaneBand(spine,lOff,lOff+lw,\'#c8503a\',0.55);
+    if(lane.type===\'median\') fillLaneBand(spine,lOff,lOff+lw,ROAD_SURFACE);
     lOff+=lw;
   });
 
   // ── Lane dividers ──
-  lOff=-hw;ctx.lineCap='butt';
+  lOff=-hw;ctx.lineCap=\'butt\';
   rt.lanes.forEach((lane,li)=>{
     const lw=LANE_W[lane.type];
     if(li<rt.lanes.length-1){
       const divOff=lOff+lw;
       const nextLane=rt.lanes[li+1];
-      const isMedianEdge=(lane.type==='median'||nextLane.type==='median');
+      const isMedianEdge=(lane.type===\'median\'||nextLane.type===\'median\');
       const isCenter=rt.twoWay&&!isMedianEdge&&li===Math.floor(rt.lanes.length/2)-1;
       if(isMedianEdge){
-        // Double yellow lines flanking the median edge
-        [-1.0,0.4].forEach(yo=>{
+        // Two yellow lines tight against each side of median edge
+        [-1.0,0.6].forEach(yo=>{
           const yl=offsetPoly(spine,divOff+yo);
-          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.4;ctx.setLineDash([]);strokePoly(yl);
+          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.2;ctx.setLineDash([]);strokePoly(yl);
         });
       } else if(isCenter){
-        // Double yellow centerline
         [-1.0,1.0].forEach(yo=>{
           const yl=offsetPoly(spine,divOff+yo);
-          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.4;ctx.setLineDash([]);strokePoly(yl);
+          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.2;ctx.setLineDash([]);strokePoly(yl);
         });
-      } else if(lane.type==='parking'||nextLane.type==='parking'){
+      } else if(lane.type===\'parking\'||nextLane.type===\'parking\'){
         const dl=offsetPoly(spine,divOff);
-        ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.lineWidth=1;ctx.setLineDash([]);strokePoly(dl);
+        ctx.strokeStyle=\'rgba(255,255,255,0.9)\';ctx.lineWidth=1;ctx.setLineDash([]);strokePoly(dl);
       } else {
         const dl=offsetPoly(spine,divOff);
-        ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=1;ctx.setLineDash([10,10]);
+        ctx.strokeStyle=\'rgba(255,255,255,0.75)\';ctx.lineWidth=1;ctx.setLineDash([10,10]);
         strokePoly(dl);ctx.setLineDash([]);
       }
     }
@@ -669,31 +674,26 @@ function drawRoadDecorations(road){
   });
   ctx.setLineDash([]);
 
-  // ── Median diagonal hatching ──
-  // Each hatch stripe runs diagonally across the full median width.
-  // We walk along the spine and draw stripes perpendicular+diagonal to the road.
+  // ── Median diagonal hatching — thin diagonal parallel lines ──
   lOff=-hw;
   rt.lanes.forEach((lane)=>{
     const lw=LANE_W[lane.type];
-    if(lane.type==='median'){
+    if(lane.type===\'median\'){
       const medCenterOff=lOff+lw/2;
-      const innerHw=lw/2-1.2; // just inside the yellow borders
-      // Step along road in world units, draw one diagonal stripe per step
-      const stripeStep=9;   // spacing between stripes along the road
-      const stripeSkew=8;   // how far the stripe is offset along-road (creates diagonal angle)
-      const stripeCount=Math.max(3,Math.floor(totalLen/stripeStep));
-      ctx.strokeStyle=YELLOW;ctx.lineWidth=2;ctx.lineCap='butt';ctx.setLineDash([]);
+      const innerHw=lw/2-1.5;
+      const stripeGap=12;  // spacing along road between stripe starts
+      const skew=lw*0.9;   // diagonal offset — how far forward left edge is vs right
+      const stripeCount=Math.max(2,Math.floor(totalLen/stripeGap));
+      ctx.strokeStyle=YELLOW;ctx.lineWidth=1;ctx.lineCap=\'butt\';ctx.setLineDash([]);
       for(let h=0;h<stripeCount;h++){
         const t=h/stripeCount;
         const pt=polyAt(spine,t);
-        const ang=pt.angle;
-        const perp=ang+Math.PI/2;
+        const ang=pt.angle,perp=ang+Math.PI/2;
         const cosA=Math.cos(ang),sinA=Math.sin(ang);
         const cosP=Math.cos(perp),sinP=Math.sin(perp);
-        // Left edge of median (one side), skewed forward along road
-        const lx=pt.x+cosP*(medCenterOff-innerHw)+cosA*stripeSkew;
-        const ly=pt.y+sinP*(medCenterOff-innerHw)+sinA*stripeSkew;
-        // Right edge of median (other side), no skew
+        // Left edge: pushed forward (skewed), Right edge: no skew
+        const lx=pt.x+cosP*(medCenterOff-innerHw)+cosA*skew;
+        const ly=pt.y+sinP*(medCenterOff-innerHw)+sinA*skew;
         const rx=pt.x+cosP*(medCenterOff+innerHw);
         const ry=pt.y+sinP*(medCenterOff+innerHw);
         ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(rx,ry);ctx.stroke();
@@ -702,34 +702,30 @@ function drawRoadDecorations(road){
     lOff+=lw;
   });
 
-  // ── BUS stencil: bold "BUS ONLY" rotated perpendicular, reads from curb ──
+  // ── BUS stencil along travel direction ──
   lOff=-hw;
   rt.lanes.forEach((lane)=>{
     const lw=LANE_W[lane.type];
-    if(lane.type==='bus'){
+    if(lane.type===\'bus\'){
       const busOff=lOff+lw/2;
-      const stencilSpacing=90;
+      const stencilSpacing=100;
       const count=Math.max(1,Math.floor(totalLen/stencilSpacing));
       for(let s=0;s<count;s++){
         const t=(s+0.5)/count;
         const pt=polyAt(spine,t);
-        // Text reads perpendicular to road direction (rotated 90° from travel)
-        // dir=-1 lanes read from right curb, dir=1 from left
-        let textAng=pt.angle+Math.PI/2;
-        if(lane.dir===-1) textAng+=Math.PI;
+        let ang=pt.angle;
+        if(lane.dir===-1) ang+=Math.PI;
         const perp=pt.angle+Math.PI/2;
         const tx=pt.x+Math.cos(perp)*busOff;
         const ty=pt.y+Math.sin(perp)*busOff;
         ctx.save();
-        ctx.translate(tx,ty);ctx.rotate(textAng);
-        ctx.textAlign='center';ctx.textBaseline='middle';
-        // "BUS" large
-        ctx.font='bold 6.5px "DM Sans",sans-serif';
-        ctx.fillStyle='rgba(255,255,255,0.95)';
-        ctx.fillText('BUS',0,2);
-        // "ONLY" small above
-        ctx.font='600 4px "DM Sans",sans-serif';
-        ctx.fillText('ONLY',0,-4);
+        ctx.translate(tx,ty);ctx.rotate(ang);
+        ctx.textAlign=\'center\';ctx.textBaseline=\'middle\';
+        ctx.fillStyle=\'rgba(255,255,255,0.95)\';
+        ctx.font=\'bold 7px "DM Sans",sans-serif\';
+        ctx.fillText(\'BUS\',0,2.5);
+        ctx.font=\'600 4.5px "DM Sans",sans-serif\';
+        ctx.fillText(\'ONLY\',0,-4);
         ctx.restore();
       }
     }
