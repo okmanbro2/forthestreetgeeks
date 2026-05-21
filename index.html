@@ -895,9 +895,9 @@ function drawRoadLabel(road){
     ctx.save();ctx.translate(pt.x,pt.y);ctx.rotate(ang);
     ctx.font='500 9px "DM Sans",sans-serif';
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.strokeStyle='rgba(255,255,255,0.78)';ctx.lineWidth=3;
+    ctx.strokeStyle='rgba(99,116,136,1)';ctx.lineWidth=1.25;
     ctx.strokeText(text,0,0);
-    ctx.fillStyle='rgba(70,60,50,0.92)';ctx.fillText(text,0,0);
+    ctx.fillStyle='rgba(255,255,255,1)';ctx.fillText(text,0,0);
     ctx.restore();
   }
   ctx.restore();
@@ -909,8 +909,6 @@ function drawRoad(road){
   drawRoadDecorations(road);
   drawRoadLabel(road);
 }
-
-
 
 
 // ═══════════════════════════════════════════════════
