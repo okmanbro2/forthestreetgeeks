@@ -10,7 +10,4 @@ worked on in my free time; so lots of things aren't final and will be subject to
 # TODO LIST
 - add crosswalks
 - make roads connect if near eachother
-- fix overlapping street names
-- weird bug where adding a new road on an existing road activates curve tool
-- ability to continue roads
-- park/greenery tool which would let you paint some areas green (below roads)
+- add service roads back
