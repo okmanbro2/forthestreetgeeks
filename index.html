@@ -108,7 +108,7 @@
 //  ROAD TYPES
 // ═══════════════════════════════════════════════════
 const LANE_W={through:12,bus:12,bike:8,parking:9,service:14,median:12};
-const ROAD_SURFACE='#d4d0cb', ROAD_EDGE='#b0aba4', YELLOW='#d4a017';
+const ROAD_SURFACE='#a9b8c8', ROAD_EDGE='#b0aba4', YELLOW='#ffebb2';
 
 // Groups: each group is a category (shown as one panel row) with multiple variants.
 // P key cycles variants within the active group mid-road.
@@ -354,8 +354,8 @@ function drawPreview(cvs,rt){
   let x=startX;
   rt.lanes.forEach((lane,i)=>{
     const lw=LANE_W[lane.type]*scale;
-    if(lane.type==='bike')  {c.fillStyle='#b8d9b3';c.fillRect(x,y0,lw,roadH);}
-    if(lane.type==='bus')   {c.fillStyle='#e8d0d0';c.fillRect(x,y0,lw,roadH);}
+    if(lane.type==='bike')  {c.fillStyle='#80b3af';c.fillRect(x,y0,lw,roadH);}
+    if(lane.type==='bus')   {c.fillStyle='#b2a2ac';c.fillRect(x,y0,lw,roadH);}
     if(lane.type==='median'){
       // Draw median with diagonal hatch fill + double yellow border lines
       c.fillStyle=ROAD_SURFACE;c.fillRect(x,y0,lw,roadH);
@@ -381,7 +381,7 @@ function drawPreview(cvs,rt){
       const isPkg=(lane.type==='parking'||rt.lanes[i+1].type==='parking');
       if(isC){
         // Double yellow center line
-        c.strokeStyle=YELLOW;c.lineWidth=0.8;c.setLineDash([]);
+        c.strokeStyle=YELLOW;c.lineWidth=0.65;c.setLineDash([]);
         c.beginPath();c.moveTo(x+lw-0.6,y0);c.lineTo(x+lw-0.6,y0+roadH);c.stroke();
         c.beginPath();c.moveTo(x+lw+0.6,y0);c.lineTo(x+lw+0.6,y0+roadH);c.stroke();
       } else {
@@ -679,9 +679,6 @@ function drawRoadBase(road){
   if(road.waypoints.length<2)return;
   ctx.save();ctx.lineJoin='round';
   buildRoadPath(road);
-  ctx.strokeStyle=ROAD_EDGE;ctx.lineWidth=rt.totalWidth+2.4;
-  ctx.lineCap='butt';ctx.stroke();
-  buildRoadPath(road);
   ctx.strokeStyle=ROAD_SURFACE;ctx.lineWidth=rt.totalWidth;
   ctx.lineCap='butt';ctx.stroke();
   ctx.restore();
@@ -705,6 +702,63 @@ function fillLaneBand(spine, offA, offB, color, alpha){
   ctx.restore();
 }
 
+// Road arrows here yeah
+function drawLaneArrow(x,y,angle,type='straight'){
+  ctx.save();
+
+  ctx.translate(x,y);
+  ctx.rotate(angle);
+
+  ctx.strokeStyle='rgba(255,255,255,0.95)';
+  ctx.fillStyle='rgba(255,255,255,0.95)';
+  ctx.lineWidth=1.8;
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+
+  // shaft
+  ctx.beginPath();
+  ctx.moveTo(0,10);
+  ctx.lineTo(0,-8);
+  ctx.stroke();
+
+  // arrow head
+  ctx.beginPath();
+  ctx.moveTo(-4,-2);
+  ctx.lineTo(0,-8);
+  ctx.lineTo(4,-2);
+  ctx.stroke();
+
+  // left turn variant
+  if(type==='left'){
+    ctx.beginPath();
+    ctx.moveTo(0,-2);
+    ctx.quadraticCurveTo(-10,-2,-10,-12);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(-14,-8);
+    ctx.lineTo(-10,-12);
+    ctx.lineTo(-6,-8);
+    ctx.stroke();
+  }
+
+  // right turn variant
+  if(type==='right'){
+    ctx.beginPath();
+    ctx.moveTo(0,-2);
+    ctx.quadraticCurveTo(10,-2,10,-12);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(6,-8);
+    ctx.lineTo(10,-12);
+    ctx.lineTo(14,-8);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
 // Pass B — lane fills, dividers, median hatching, BUS stencil
 function drawRoadDecorations(road){
   const rt=getRoadType(road.typeId);
@@ -718,8 +772,8 @@ function drawRoadDecorations(road){
   let lOff=-hw;
   rt.lanes.forEach((lane)=>{
     const lw=LANE_W[lane.type];
-    if(lane.type==='bike')   fillLaneBand(spine,lOff,lOff+lw,'#b8d9b3');
-    if(lane.type==='bus')    fillLaneBand(spine,lOff,lOff+lw,'#c8503a',0.55);
+    if(lane.type==='bike')   fillLaneBand(spine,lOff,lOff+lw,'#80b3af');
+    if(lane.type==='bus')    fillLaneBand(spine,lOff,lOff+lw,'#b2a2ac');
     if(lane.type==='median') fillLaneBand(spine,lOff,lOff+lw,ROAD_SURFACE);
     lOff+=lw;
   });
@@ -737,7 +791,7 @@ function drawRoadDecorations(road){
         // Two yellow lines tight against each side of median edge
         [-1.0,0.6].forEach(yo=>{
           const yl=offsetPoly(spine,divOff+yo);
-          ctx.strokeStyle=YELLOW;ctx.lineWidth=1.2;ctx.setLineDash([]);strokePoly(yl);
+          ctx.strokeStyle=YELLOW;ctx.lineWidth=0.875;ctx.setLineDash([]);strokePoly(yl);
         });
       } else if(isCenter){
         [-1.0,1.0].forEach(yo=>{
@@ -746,10 +800,10 @@ function drawRoadDecorations(road){
         });
       } else if(lane.type==='parking'||nextLane.type==='parking'){
         const dl=offsetPoly(spine,divOff);
-        ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.lineWidth=1;ctx.setLineDash([]);strokePoly(dl);
+        ctx.strokeStyle='rgba(255,255,255)';ctx.lineWidth=1;ctx.setLineDash([]);strokePoly(dl);
       } else {
         const dl=offsetPoly(spine,divOff);
-        ctx.strokeStyle='rgba(255,255,255,0.75)';ctx.lineWidth=1;ctx.setLineDash([10,10]);
+        ctx.strokeStyle='rgba(255,255,255)';ctx.lineWidth=1;ctx.setLineDash([10,10]);
         strokePoly(dl);ctx.setLineDash([]);
       }
     }
@@ -804,7 +858,7 @@ function drawRoadDecorations(road){
         ctx.save();
         ctx.translate(tx,ty);ctx.rotate(ang);
         ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillStyle='rgba(255,255,255,0.95)';
+        ctx.fillStyle='rgba(255,255,255,1)';
         ctx.font='bold 7px "DM Sans",sans-serif';
         ctx.fillText('BUS',0,2.5);
         ctx.font='600 4.5px "DM Sans",sans-serif';
