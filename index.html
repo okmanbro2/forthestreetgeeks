@@ -94,7 +94,7 @@
 <div id="topbar">
   <span class="mode-pill" id="modePill">NAVIGATE</span>
   <span class="mode-label" id="modeLabel">ForTheStreetGeeks</span>
-  <span class="hint" id="modeHint">SPACE=build · WASD=pan · 1/2/3=road group · P=cycle variant · I/O=zoom</span>
+  <span class="hint" id="modeHint">SPACE=build · WASD=pan · 1–5=road group · P=cycle variant · I/O=zoom</span>
 </div>
 <input id="nameInput" type="text" placeholder="Street name (Enter to confirm)" maxlength="40"/>
 <div id="toast"></div>
@@ -107,10 +107,11 @@
 // ═══════════════════════════════════════════════════
 //  ROAD TYPES
 // ═══════════════════════════════════════════════════
-const LANE_W={through:12,bus:12,bike:8,parking:9,service:14,median:12};
+const LANE_W={through:12,bus:12,bike:8,parking:9,service:10,median:12,curb:5};
 const ROAD_SURFACE='#a9b8c8', ROAD_EDGE='#a9b8c8', YELLOW='#ffebb2';
 const BUS_COLOR='#b2a2ac', BIKE_COLOR='#80b3af', LABEL_BG='#6a7a8d';
 const PARKING_COLOR='#9bacbe', PARKING_EDGE='#c3d5e5';
+const CURB_COLOR='#a9a285'; // raised platform/curb strip
 
 // Groups: each group is a category (shown as one panel row) with multiple variants.
 // P key cycles variants within the active group mid-road.
@@ -230,6 +231,82 @@ const ROAD_GROUPS = [
       {id:'avenue_bike',     label:'+ Bike Lane',        twoWay:false, lanes:[{type:'bike',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
       {id:'avenue_bus',      label:'+ Bus Lane',         twoWay:false, lanes:[{type:'bus',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
       {id:'avenue_bus_bike', label:'+ Bus + Bike',       twoWay:false, lanes:[{type:'bike',dir:1},{type:'bus',dir:1},{type:'through',dir:1},{type:'through',dir:1},{type:'through',dir:1}]},
+    ]
+  },
+  {
+    key: '4', label: 'Boulevard', icon: '⇔',
+    variants: [
+      {
+        // Express gets 2 lanes each side — the main Grand Concourse layout
+        id:'concourse_wide',
+        label:'Grand Concourse',
+        twoWay:true,
+        lanes:[
+          {type:'parking', dir:-1},
+          {type:'through', dir:-1},
+          {type:'curb',    dir:0},
+          {type:'through', dir:-1},
+          {type:'through', dir:-1},
+          {type:'median',  dir:0},
+          {type:'through', dir:1},
+          {type:'through', dir:1},
+          {type:'curb',    dir:0},
+          {type:'through', dir:1},
+          {type:'parking', dir:1},
+        ]
+      },
+      {
+        // Bus on outer, 2 express lanes each side
+        id:'concourse_bus',
+        label:'+ Bus',
+        twoWay:true,
+        lanes:[
+          {type:'parking', dir:-1},
+          {type:'bus',     dir:-1},
+          {type:'curb',    dir:0},
+          {type:'through', dir:-1},
+          {type:'through', dir:-1},
+          {type:'median',  dir:0},
+          {type:'through', dir:1},
+          {type:'through', dir:1},
+          {type:'curb',    dir:0},
+          {type:'bus',     dir:1},
+          {type:'parking', dir:1},
+        ]
+      },
+      {
+        // Bike on outer, 2 express lanes each side
+        id:'concourse_bike',
+        label:'+ Bike',
+        twoWay:true,
+        lanes:[
+          {type:'bike',    dir:-1},
+          {type:'through', dir:-1},
+          {type:'curb',    dir:0},
+          {type:'through', dir:-1},
+          {type:'through', dir:-1},
+          {type:'median',  dir:0},
+          {type:'through', dir:1},
+          {type:'through', dir:1},
+          {type:'curb',    dir:0},
+          {type:'through', dir:1},
+          {type:'bike',    dir:1},
+        ]
+      },
+    ]
+  },
+  {
+    key: '5', label: 'Service', icon: '─',
+    noName: true,
+    variants: [
+      {
+        id:'service_rd',
+        label:'Service Road',
+        twoWay:true,
+        lanes:[
+          {type:'service', dir:0},
+        ]
+      },
     ]
   },
 ];
@@ -365,6 +442,9 @@ function drawPreview(cvs,rt){
     if(lane.type==='bike')    {c.fillStyle=BIKE_COLOR;c.fillRect(x,y0,lw,roadH);}
     if(lane.type==='bus')     {c.fillStyle=BUS_COLOR;c.fillRect(x,y0,lw,roadH);}
     if(lane.type==='parking') {c.fillStyle=PARKING_COLOR;c.fillRect(x,y0,lw,roadH);}
+    if(lane.type==='curb'){
+      c.fillStyle=CURB_COLOR;c.fillRect(x,y0,lw,roadH);
+    }
     if(lane.type==='median'){
       // Draw median with diagonal hatch fill + double yellow border lines
       c.fillStyle=ROAD_SURFACE;c.fillRect(x,y0,lw,roadH);
@@ -385,7 +465,8 @@ function drawPreview(cvs,rt){
         c.beginPath();c.moveTo(lx,y0);c.lineTo(lx,y0+roadH);c.stroke();
       });
     }
-    if(i<rt.lanes.length-1 && lane.type!=='median' && rt.lanes[i+1].type!=='median'){
+    if(i<rt.lanes.length-1 && lane.type!=='median' && rt.lanes[i+1].type!=='median'
+       && lane.type!=='curb' && rt.lanes[i+1].type!=='curb'){
       const isC=rt.twoWay&&i===Math.floor(rt.lanes.length/2)-1;
       const isPkg=(lane.type==='parking'||rt.lanes[i+1].type==='parking');
       if(isC){
@@ -447,7 +528,7 @@ function updateTopbar(){
     modePill.className='mode-pill';modePill.style.background='';modePill.style.color='';
     modePill.textContent='NAVIGATE';
     modeLabel.textContent='STREET GEEK';
-    modeHint.textContent='SPACE=build · WASD/arrows=pan · I/O/scroll=zoom · 1/2/3=group · P=cycle · Shift=fast · Ctrl+Z/Y';
+    modeHint.textContent='SPACE=build · WASD/arrows=pan · I/O/scroll=zoom · 1–5=group · P=cycle · Shift=fast · Ctrl+Z/Y';
   }
   zoomLabel.textContent=Math.round(zoom*100)+'%';
   btnUndo.disabled=undoStack.length===0;
@@ -553,7 +634,7 @@ function getRoadType(id){return ROAD_TYPES.find(r=>r.id===id)||ROAD_TYPES[0];}
 // Two consecutive buildBodyClip+clip calls intersect → just the overlap area.
 function buildBodyClip(road,extraHw){
   const rt=getRoadType(road.typeId);
-  const hw=rt.totalWidth/2+(extraHw||0);
+  const hw=rt.totalWidth/2.008+(extraHw||0);
   const spine=sampleRoad(road,60);
   const left=offsetPoly(spine,-hw);
   const right=[...offsetPoly(spine,hw)].reverse();
@@ -746,6 +827,8 @@ function drawRoadDecorations(road){
     if(lane.type==='bus')     fillLaneBand(spine,lOff,lOff+lw,BUS_COLOR);
     if(lane.type==='median')  fillLaneBand(spine,lOff,lOff+lw,ROAD_SURFACE);
     if(lane.type==='parking') fillLaneBand(spine,lOff,lOff+lw,PARKING_COLOR);
+    if(lane.type==='curb')             fillLaneBand(spine,lOff,lOff+lw,CURB_COLOR);
+    if(lane.type==='service') fillLaneBand(spine,lOff,lOff+lw,ROAD_SURFACE);
     lOff+=lw;
   });
 
@@ -757,13 +840,17 @@ function drawRoadDecorations(road){
       const divOff=lOff+lw;
       const nextLane=rt.lanes[li+1];
       const isMedianEdge=(lane.type==='median'||nextLane.type==='median');
-      const isCenter=rt.twoWay&&!isMedianEdge&&li===Math.floor(rt.lanes.length/2)-1;
+      const isCurbEdge=(lane.type==='curb'||nextLane.type==='curb');
+      const isCenter=rt.twoWay&&!isMedianEdge&&!isCurbEdge&&li===Math.floor(rt.lanes.length/2)-1;
       if(isMedianEdge){
         // Two yellow lines tight against each side of median edge
         [-1.0,0.6].forEach(yo=>{
           const yl=offsetPoly(spine,divOff+yo);
           ctx.strokeStyle=YELLOW;ctx.lineWidth=0.9;ctx.setLineDash([]);strokePoly(yl);
         });
+      } else if(isCurbEdge){
+        // Curb boundary: no painted line — the color contrast is the divider
+        // (skip)
       } else if(isCenter){
         [-1.0,1.0].forEach(yo=>{
           const yl=offsetPoly(spine,divOff+yo);
@@ -812,6 +899,7 @@ function drawRoadDecorations(road){
         ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(rx,ry);ctx.stroke();
       }
     }
+
     lOff+=lw;
   });
 
@@ -832,13 +920,17 @@ function drawRoadDecorations(road){
         const tx=pt.x+Math.cos(perp)*busOff;
         const ty=pt.y+Math.sin(perp)*busOff;
         ctx.save();
-        ctx.translate(tx,ty);ctx.rotate(ang);
+        ctx.translate(tx,ty);
+        ctx.rotate(ang);
+        ctx.rotate(Math.PI/2);
         ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.fillStyle='#fff';
-        ctx.font='bold 7px "DM Sans",sans-serif';
-        ctx.fillText('BUS',0,2.5);
-        ctx.font='600 4.5px "DM Sans",sans-serif';
+        ctx.scale(0.85,1.8);
+        ctx.font='700 4.8px "DM Sans",sans-serif';
         ctx.fillText('ONLY',0,-4);
+        ctx.scale(0.8,1);
+        ctx.font='900 8.2px "DM Sans",sans-serif';
+        ctx.fillText('BUS',0,5.5);
         ctx.restore();
       }
     }
@@ -1118,17 +1210,21 @@ function findSnapTarget(worldPos){
   let best=null,bestD2=SNAP2;
 
   for(const r of roads){
-    // 1. Endpoint snaps (higher priority — check first at tighter radius)
+    const rt=getRoadType(r.typeId);
+    const hw=rt.totalWidth/2;
+
+    // 1. Endpoint snaps (tight radius)
     for(const wp of[r.waypoints[0],r.waypoints[r.waypoints.length-1]]){
       const d2=(wp.x-worldPos.x)**2+(wp.y-worldPos.y)**2;
       if(d2<bestD2){bestD2=d2;best={x:wp.x,y:wp.y,onBody:false};}
     }
-    // 2. Body snap — sample the road spine and check each segment
+    // 2. Body snap — extends to full road half-width so clicking the visual edge works
+    const bodySnapR=Math.max(SNAP, hw+2);
     const spine=sampleRoad(r,40);
     for(let i=0;i<spine.length-1;i++){
       const cp=closestPointOnSegment(worldPos.x,worldPos.y,
         spine[i].x,spine[i].y,spine[i+1].x,spine[i+1].y);
-      if(cp.d2<bestD2){
+      if(cp.d2<bodySnapR*bodySnapR && cp.d2<bestD2){
         bestD2=cp.d2;
         const ang=Math.atan2(spine[i+1].y-spine[i].y,spine[i+1].x-spine[i].x);
         best={x:cp.x,y:cp.y,onBody:true,tangentAngle:ang,road:r};
@@ -1161,6 +1257,8 @@ document.addEventListener('keydown',e=>{
   if(e.key==='1'){selectGroup(0);return;}
   if(e.key==='2'){selectGroup(1);return;}
   if(e.key==='3'){selectGroup(2);return;}
+  if(e.key==='4'){selectGroup(3);return;}
+  if(e.key==='5'){selectGroup(4);return;}
   if(e.key==='p'||e.key==='P'){cycleVariant();return;}
   if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();return;}
   if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='Z'))){e.preventDefault();redo();return;}
@@ -1324,38 +1422,70 @@ canvas.addEventListener('wheel',e=>{
 const AUTO_CONNECT_RADIUS=28;
 
 function autoConnectEndpoints(road){
-  const endpointDefs=[
-    {isStart:true},
-    {isStart:false}
-  ];
+  const endpointDefs=[{isStart:true},{isStart:false}];
   endpointDefs.forEach(({isStart})=>{
     const pt=isStart?road.waypoints[0]:road.waypoints[road.waypoints.length-1];
-    let bestD=AUTO_CONNECT_RADIUS, bestPt=null;
+    let bestD=Infinity, bestPt=null, bestRoad=null, bestOnBody=false, bestSpineIdx=-1, bestSpine=null;
+
     for(const r of roads){
       if(r===road)continue;
       const spine=sampleRoad(r,60);
-      // Endpoint priority
+      const rt=getRoadType(r.typeId);
+      const hw=rt.totalWidth/2;
+
+      // Endpoint-to-endpoint (tight radius)
       for(const wp of[spine[0],spine[spine.length-1]]){
         const d=Math.hypot(wp.x-pt.x,wp.y-pt.y);
-        if(d<bestD){bestD=d;bestPt={x:wp.x,y:wp.y};}
+        if(d<AUTO_CONNECT_RADIUS && d<bestD){
+          bestD=d;bestPt={x:wp.x,y:wp.y};bestRoad=r;bestOnBody=false;
+          bestSpine=spine;bestSpineIdx=-1;
+        }
       }
-      // Body
+
+      // Body snap: accept if within road half-width + small margin
       for(let i=0;i<spine.length-1;i++){
         const cp=closestPointOnSegment(pt.x,pt.y,spine[i].x,spine[i].y,spine[i+1].x,spine[i+1].y);
         const d=Math.sqrt(cp.d2);
-        if(d<bestD){bestD=d;bestPt={x:cp.x,y:cp.y};}
+        if(d < hw+6 && d < bestD){
+          bestD=d;bestPt={x:cp.x,y:cp.y};bestRoad=r;bestOnBody=true;
+          bestSpine=spine;bestSpineIdx=i;
+        }
       }
     }
-    if(bestPt){
+
+    if(!bestPt) return;
+
+    if(bestOnBody && bestSpineIdx>=0){
+      // We need the new road's spine to actually CROSS the target spine so the
+      // intersection patch fires. Strategy: place the endpoint on the spine,
+      // then push it a few px past in the perpendicular direction so the
+      // two spines genuinely intersect.
+      const s=bestSpine, i=bestSpineIdx;
+      const dx=s[i+1].x-s[i].x, dy=s[i+1].y-s[i].y;
+      const len=Math.hypot(dx,dy)||1;
+      // Perpendicular pointing from our road endpoint toward the spine
+      // (we need to know which side we came from)
+      const myRtLast = isStart
+        ? (road.waypoints.length>1 ? road.waypoints[1] : road.waypoints[0])
+        : (road.waypoints.length>1 ? road.waypoints[road.waypoints.length-2] : road.waypoints[0]);
+      const side = (myRtLast.x-bestPt.x)*(-dy/len) + (myRtLast.y-bestPt.y)*(dx/len);
+      const sign = side >= 0 ? -1 : 1;
+      const PUSH = 4; // enough to cross, small enough not to be visible
+      const pushed = {
+        x: bestPt.x + sign*(-dy/len)*PUSH,
+        y: bestPt.y + sign*(dx/len)*PUSH
+      };
+      if(isStart){
+        road.waypoints[0]={x:pushed.x,y:pushed.y};
+      } else {
+        road.waypoints[road.waypoints.length-1]={x:pushed.x,y:pushed.y};
+      }
+    } else if(!bestOnBody) {
+      // Endpoint-to-endpoint: extend to meet exactly
       const dist=Math.hypot(bestPt.x-pt.x,bestPt.y-pt.y);
       if(dist>1){
-        if(isStart){
-          road.waypoints.unshift({x:bestPt.x,y:bestPt.y});
-          road.segments.unshift(null);
-        } else {
-          road.waypoints.push({x:bestPt.x,y:bestPt.y});
-          road.segments.push(null);
-        }
+        if(isStart){road.waypoints.unshift({x:bestPt.x,y:bestPt.y});road.segments.unshift(null);}
+        else       {road.waypoints.push({x:bestPt.x,y:bestPt.y});road.segments.push(null);}
       }
     }
   });
@@ -1366,6 +1496,15 @@ function autoConnectEndpoints(road){
 // ═══════════════════════════════════════════════════
 function finishRoad(){
   autoConnectEndpoints(currentRoad);
+  const grp=getRoadGroup(currentRoad.typeId);
+  if(grp.noName){
+    // Service roads skip naming entirely — place immediately
+    currentRoad.name='';
+    saveUndo();roads.push(currentRoad);
+    currentRoad=null;curveMode=false;buildMode=false;
+    toast('Road placed!');updateTopbar();
+    return;
+  }
   const spine=sampleRoad(currentRoad,8);
   const mid=polyAt(spine,0.5);
   const sx=(mid.x-camX)*zoom+W/2;
