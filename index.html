@@ -107,7 +107,7 @@
 // ═══════════════════════════════════════════════════
 //  ROAD TYPES
 // ═══════════════════════════════════════════════════
-const LANE_W={through:12,bus:12,bike:8,parking:9,service:10,median:12,curb:5};
+const LANE_W={through:12,bus:12,bike:8,parking:9,service:6,median:12,curb:5};
 const ROAD_SURFACE='#a9b8c8', ROAD_EDGE='#a9b8c8', YELLOW='#ffebb2';
 const BUS_COLOR='#b2a2ac', BIKE_COLOR='#80b3af', LABEL_BG='#6a7a8d';
 const PARKING_COLOR='#9bacbe', PARKING_EDGE='#c3d5e5';
@@ -1498,7 +1498,7 @@ function finishRoad(){
   autoConnectEndpoints(currentRoad);
   const grp=getRoadGroup(currentRoad.typeId);
   if(grp.noName){
-    // Service roads skip naming entirely — place immediately
+    // Service roads skip naming entirely: place immediately
     currentRoad.name='';
     saveUndo();roads.push(currentRoad);
     currentRoad=null;curveMode=false;buildMode=false;
