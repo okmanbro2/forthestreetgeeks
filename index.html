@@ -260,7 +260,6 @@ const keys={};
 let mouseX=0,mouseY=0;
 let buildMode=false;
 let curveMode=false;
-let placedLabels = [];
 
 // road: { typeId, waypoints:[{x,y}], segments:[null|{cpx,cpy}], name }
 let currentRoad=null;
@@ -528,13 +527,23 @@ function polyAt(pts,t){
 }
 function offsetPoly(pts,off){
   if(pts.length<2)return pts.map(p=>({x:p.x+off,y:p.y}));
+  const norms=[];
+  for(let i=0;i<pts.length-1;i++){
+    const dx=pts[i+1].x-pts[i].x,dy=pts[i+1].y-pts[i].y;
+    const l=Math.sqrt(dx*dx+dy*dy)||1;
+    norms.push({nx:-dy/l,ny:dx/l});
+  }
+  const ML=4;
   return pts.map((pt,i)=>{
-    let dx,dy;
-    if(i===0){dx=pts[1].x-pt.x;dy=pts[1].y-pt.y;}
-    else if(i===pts.length-1){dx=pt.x-pts[i-1].x;dy=pt.y-pts[i-1].y;}
-    else{dx=pts[i+1].x-pts[i-1].x;dy=pts[i+1].y-pts[i-1].y;}
-    const len=Math.sqrt(dx*dx+dy*dy)||1;
-    return{x:pt.x+(-dy/len)*off,y:pt.y+(dx/len)*off};
+    if(i===0)return{x:pt.x+norms[0].nx*off,y:pt.y+norms[0].ny*off};
+    if(i===pts.length-1){const n=norms[norms.length-1];return{x:pt.x+n.nx*off,y:pt.y+n.ny*off};}
+    const n1=norms[i-1],n2=norms[i];
+    const bx=n1.nx+n2.nx,by=n1.ny+n2.ny;
+    const bl=Math.sqrt(bx*bx+by*by);
+    if(bl<1e-6)return{x:pt.x+n1.nx*off,y:pt.y+n1.ny*off};
+    const bux=bx/bl,buy=by/bl;
+    const dot=Math.max(1/ML,bux*n1.nx+buy*n1.ny);
+    return{x:pt.x+bux*(off/dot),y:pt.y+buy*(off/dot)};
   });
 }
 function getRoadType(id){return ROAD_TYPES.find(r=>r.id===id)||ROAD_TYPES[0];}
@@ -807,184 +816,108 @@ function drawRoadDecorations(road){
   });
 
   // ── BUS stencil along travel direction ──
-lOff=-hw;
-rt.lanes.forEach((lane)=>{
-  const lw=LANE_W[lane.type];
-
-  if(lane.type==='bus'){
-    const busOff=lOff+lw/2;
-    const stencilSpacing=100;
-    const count=Math.max(1,Math.floor(totalLen/stencilSpacing));
-
-    for(let s=0;s<count;s++){
-      const t=(s+0.5)/count;
-      const pt=polyAt(spine,t);
-
-      let ang=pt.angle;
-      if(lane.dir===-1) ang+=Math.PI;
-
-      const perp=pt.angle+Math.PI/2;
-
-      const tx=pt.x+Math.cos(perp)*busOff;
-      const ty=pt.y+Math.sin(perp)*busOff;
-
-     ctx.save();
-
-    ctx.translate(tx,ty);
-    ctx.rotate(ang);
-    ctx.rotate(Math.PI / 2);
-    
-    ctx.textAlign='center';
-    ctx.textBaseline='middle';
-    ctx.fillStyle='#fff';
-    
-    // Stretch this out
-    ctx.scale(0.85, 1.8);
-    
-    // "only"
-    ctx.font='700 4.8px "DM Sans",sans-serif';
-    ctx.fillText('ONLY',0,-4);
-    
-    // "bus"
-    ctx.font='900 8.2px "DM Sans",sans-serif';
-    
-    // horizontal stretch so this Gubby Ahh text
-    // matches the text well
-    ctx.scale(0.8,1);
-    
-    ctx.fillText('BUS',0,5.5);
-    
-    ctx.restore();
+  lOff=-hw;
+  rt.lanes.forEach((lane)=>{
+    const lw=LANE_W[lane.type];
+    if(lane.type==='bus'){
+      const busOff=lOff+lw/2;
+      const stencilSpacing=100;
+      const count=Math.max(1,Math.floor(totalLen/stencilSpacing));
+      for(let s=0;s<count;s++){
+        const t=(s+0.5)/count;
+        const pt=polyAt(spine,t);
+        let ang=pt.angle;
+        if(lane.dir===-1) ang+=Math.PI;
+        const perp=pt.angle+Math.PI/2;
+        const tx=pt.x+Math.cos(perp)*busOff;
+        const ty=pt.y+Math.sin(perp)*busOff;
+        ctx.save();
+        ctx.translate(tx,ty);ctx.rotate(ang);
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillStyle='#fff';
+        ctx.font='bold 7px "DM Sans",sans-serif';
+        ctx.fillText('BUS',0,2.5);
+        ctx.font='600 4.5px "DM Sans",sans-serif';
+        ctx.fillText('ONLY',0,-4);
+        ctx.restore();
+      }
     }
-  }
-
-  lOff+=lw;
-});
+    lOff+=lw;
+  });
 
   ctx.restore();
 }
 
 // Pass D — street name labels, rendered LAST so they sit on top of everything
-
+// Per-character placement follows the road curve; flipLabel corrects roads
+// drawn right-to-left so text is always readable (never upside-down).
+let placedLabels=[];
 function drawRoadLabel(road){
-  if(!road.name) return;
-  const spine = sampleRoad(road,60);
-  const totalLen = polyLen(spine);
+  if(!road.name)return;
+  const spine=sampleRoad(road,60);
+  const totalLen=polyLen(spine);
+  if(totalLen<60)return;
 
-  if(totalLen < 60) return;
-  const text = road.name.toUpperCase();
+  const text=road.name.toUpperCase();
   ctx.save();
-  ctx.font = '600 8px "DM Sans",sans-serif';
-  const textW = ctx.measureText(text).width;
-  const minGap = textW + 40;
-  const count = Math.max(
-    1,
-    Math.floor(totalLen / Math.max(minGap,140))
-  );
+  ctx.font='600 8px "DM Sans",sans-serif';
+  const textW=ctx.measureText(text).width;
+  const minGap=textW+40;
+  const count=Math.max(1,Math.floor(totalLen/Math.max(minGap,140)));
+
   for(let i=0;i<count;i++){
-    const t = (i + 0.5) / count;
-    const pt = polyAt(spine,t);
-    
-    // ─────────────────────────────
-    // Overlap check
-    // ─────────────────────────────
-    const box = {
-      x: pt.x - textW/2 - 10,
-      y: pt.y - 10,
-      w: textW + 20,
-      h: 20
-    };
+    const t=(i+0.5)/count;
+    const pt=polyAt(spine,t);
 
-    let blocked = false;
-
-    for(const other of placedLabels){
-      if(!(
-        box.x + box.w < other.x ||
-        other.x + other.w < box.x ||
-        box.y + box.h < other.y ||
-        other.y + other.h < box.y
-      )){
-        blocked = true;
-        break;
-      }
-    }
-
-    if(blocked) continue;
-
+    // Overlap guard
+    const box={x:pt.x-textW/2-10,y:pt.y-10,w:textW+20,h:20};
+    if(placedLabels.some(o=>!(box.x+box.w<o.x||o.x+o.w<box.x||box.y+box.h<o.y||o.y+o.h<box.y)))continue;
     placedLabels.push(box);
 
-    // ─────────────────────────────
-    // Text
-    // ─────────────────────────────
-    const dirA = polyAt(spine, Math.max(0, t - 0.03));
-    const dirB = polyAt(spine, Math.min(1, t + 0.03));
+    // Overall road angle at this label position
+    const dirA=polyAt(spine,Math.max(0,t-0.03));
+    const dirB=polyAt(spine,Math.min(1,t+0.03));
+    const baseAng=Math.atan2(dirB.y-dirA.y,dirB.x-dirA.x);
 
-    let baseAng = Math.atan2(
-      dirB.y - dirA.y,
-      dirB.x - dirA.x
-    );
+    // If the road is pointing left, we must flip each character AND reverse the
+    // traversal direction so the word reads left-to-right on screen.
+    const flipLabel=baseAng>Math.PI/2||baseAng<-Math.PI/2;
+    // s = +1 normal, -1 flipped: negating both the start offset and step mirrors
+    // character positions along the spine without reversing the string itself.
+    const s=flipLabel?-1:1;
 
-    const flipLabel =
-      baseAng > Math.PI/2 ||
-      baseAng < -Math.PI/2;
-
-    // ─────────────────────────────
-    // Curve rendering
-    // ─────────────────────────────
     ctx.save();
+    ctx.font='600 8px "DM Sans",sans-serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
 
-    ctx.font = '600 8px "DM Sans",sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    let offset = -textW / 2;
+    let offset=s*(-textW/2);
 
     for(const ch of text){
-      const chW = ctx.measureText(ch).width;
-      const charDist = offset + chW/2;
-      const charT = t + (charDist / totalLen);
+      const chW=ctx.measureText(ch).width;
+      const charDist=offset+s*chW/2;
+      const charT=t+(charDist/totalLen);
 
-      if(charT < 0 || charT > 1){
-        offset += chW;
-        continue;
-      }
+      if(charT<0||charT>1){offset+=s*chW;continue;}
 
-      const ptA = polyAt(
-        spine,
-        Math.max(0,charT - 0.01)
-      );
+      const ptA=polyAt(spine,Math.max(0,charT-0.01));
+      const ptB=polyAt(spine,Math.min(1,charT+0.01));
+      const charPt=polyAt(spine,charT);
 
-      const ptB = polyAt(
-        spine,
-        Math.min(1,charT + 0.01)
-      );
-
-      const charPt = polyAt(spine,charT);
-
-      let charAng = Math.atan2(
-        ptB.y - ptA.y,
-        ptB.x - ptA.x
-      );
+      let charAng=Math.atan2(ptB.y-ptA.y,ptB.x-ptA.x);
+      // Flip the glyph so it reads upright on right-to-left roads
+      if(flipLabel)charAng+=Math.PI;
 
       ctx.save();
-
       ctx.translate(charPt.x,charPt.y);
       ctx.rotate(charAng);
-
-      // Outline
-      ctx.strokeStyle = LABEL_BG;
-      ctx.lineWidth = 1.2;
-      ctx.lineJoin = 'round';
-
+      ctx.strokeStyle=LABEL_BG;ctx.lineWidth=1.2;ctx.lineJoin='round';
       ctx.strokeText(ch,0,0);
-
-      // Fill
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle='#fff';
       ctx.fillText(ch,0,0);
-
       ctx.restore();
 
-      offset += chW;
+      offset+=s*chW;
     }
     ctx.restore();
   }
@@ -997,6 +930,9 @@ function drawRoad(road){
   drawRoadDecorations(road);
   drawRoadLabel(road);
 }
+
+
+
 
 // ═══════════════════════════════════════════════════
 //  PARK DRAWING
@@ -1014,7 +950,8 @@ function pointInPark(px,py,pts){
 // Merge a new stroke into any park whose outline it touches/overlaps.
 // Returns the merged parks array.
 function mergeNewPark(newPts,existingParks){
-  // Keep every park as its own point array
+  // Keep every park as its own point array — fill('nonzero') handles visual
+  // union automatically. No need to concatenate arrays (which causes tears).
   return[...existingParks,newPts];
 }
 
@@ -1504,7 +1441,7 @@ function loop(){
   });
 
   // Pass 4 — street name labels rendered on top of all geometry
-  placedLabels = [];
+  placedLabels=[];
   roads.forEach(r=>drawRoadLabel(r));
 
   drawBuildOverlay();
