@@ -541,23 +541,46 @@ function updateTopbar(){
   btnUndo.disabled=undoStack.length===0;
   btnRedo.disabled=redoStack.length===0;
 }
-function saveUndo(){undoStack.push(JSON.stringify({roads,parks,terrains}));redoStack=[];updateTopbar();}
+function saveUndo(){undoStack.push(JSON.stringify({roads,parks,terrains}));redoStack=[];_roadsVersion++;updateTopbar();}
 function undo(){
   if(!undoStack.length)return;
   redoStack.push(JSON.stringify({roads,parks}));
   const s=JSON.parse(undoStack.pop());
   roads=s.roads||s;parks=s.parks||[];terrains=s.terrains||[];
-  updateTopbar();toast('Undo');
+  _roadsVersion++;updateTopbar();toast('Undo');
 }
 function redo(){
   if(!redoStack.length)return;
   undoStack.push(JSON.stringify({roads,parks}));
   const s=JSON.parse(redoStack.pop());
   roads=s.roads||s;parks=s.parks||[];terrains=s.terrains||[];
-  updateTopbar();toast('Redo');
+  _roadsVersion++;updateTopbar();toast('Redo');
 }
 btnUndo.addEventListener('click',undo);
 btnRedo.addEventListener('click',redo);
+
+// ── Intersection cache (recomputes only when roads change) ──────────────────
+let _roadsVersion=0,_ixVersion=-1,_ixCache=[];
+function getIntersections(){
+  if(_roadsVersion!==_ixVersion){_ixCache=computeIntersections(roads);_ixVersion=_roadsVersion;}
+  return _ixCache;
+}
+
+// ── Body-clip polygon cache (avoids re-sampling placed roads every frame) ───
+// Keyed by road object; invalidates automatically when waypoint/segment count changes.
+const _bodyPolyCache=new WeakMap();
+function getCachedBodyPoly(road,extraHw){
+  const rt=getRoadType(road.typeId);
+  const hw=rt.totalWidth/2+(extraHw||0);
+  const cacheKey=`${hw}|${road.waypoints.length}|${road.segments.filter(Boolean).length}`;
+  let c=_bodyPolyCache.get(road);
+  if(!c||c.key!==cacheKey){
+    const spine=sampleRoad(road,60);
+    c={key:cacheKey,left:offsetPoly(spine,-hw),right:[...offsetPoly(spine,hw)].reverse()};
+    _bodyPolyCache.set(road,c);
+  }
+  return c;
+}
 
 document.getElementById('btnSave').addEventListener('click',()=>{
   const payload=JSON.stringify({version:1,roads,parks,terrains},null,2);
@@ -666,11 +689,7 @@ function getRoadType(id){return ROAD_TYPES.find(r=>r.id===id)||ROAD_TYPES[0];}
 // extraHw expands (or contracts) the clip beyond the nominal half-width.
 // Two consecutive buildBodyClip+clip calls intersect → just the overlap area.
 function buildBodyClip(road,extraHw){
-  const rt=getRoadType(road.typeId);
-  const hw=rt.totalWidth/2+(extraHw||0);
-  const spine=sampleRoad(road,60);
-  const left=offsetPoly(spine,-hw);
-  const right=[...offsetPoly(spine,hw)].reverse();
+  const{left,right}=getCachedBodyPoly(road,extraHw);
   ctx.beginPath();
   ctx.moveTo(left[0].x,left[0].y);
   for(let i=1;i<left.length;i++)ctx.lineTo(left[i].x,left[i].y);
@@ -994,7 +1013,17 @@ function drawRoadLabel(road){
     const t=(i+0.5)/count;
     const pt=polyAt(spine,t);
 
-    const box={x:pt.x-textW/2-10,y:pt.y-10,w:textW+20,h:20};
+    // Compute road angle FIRST so the bounding box accounts for rotation.
+    const dirA=polyAt(spine,Math.max(0,t-0.03));
+    const dirB=polyAt(spine,Math.min(1,t+0.03));
+    const baseAng=Math.atan2(dirB.y-dirA.y,dirB.x-dirA.x);
+
+    // Rotation-aware AABB: project the text half-extents onto world axes.
+    // hw = half-length along road, hh = half-height across road.
+    const hw=textW/2+12, hh=9;
+    const cosA=Math.abs(Math.cos(baseAng)), sinA=Math.abs(Math.sin(baseAng));
+    const bw=hw*cosA+hh*sinA, bh=hw*sinA+hh*cosA;
+    const box={x:pt.x-bw,y:pt.y-bh,w:2*bw,h:2*bh};
 
     // Block if overlapping another label ON THIS SAME ROAD
     const selfOverlap=ownLabels.some(o=>
@@ -1011,11 +1040,6 @@ function drawRoadLabel(road){
 
     ownLabels.push(box);
     placedLabels.push(box);
-
-    // Overall road angle at this label position
-    const dirA=polyAt(spine,Math.max(0,t-0.03));
-    const dirB=polyAt(spine,Math.min(1,t+0.03));
-    const baseAng=Math.atan2(dirB.y-dirA.y,dirB.x-dirA.x);
 
     // If the road is pointing left, we must flip each character AND reverse the
     // traversal direction so the word reads left-to-right on screen.
@@ -1570,7 +1594,7 @@ function loop(){
   ctx.translate(W/2-camX*zoom,H/2-camY*zoom);
   ctx.scale(zoom,zoom);
 
-  const intersections=computeIntersections(roads);
+  const intersections=getIntersections();
 
   drawParks();
 
