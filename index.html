@@ -1555,25 +1555,6 @@ nameInput.addEventListener('keydown',e=>{
 // ═══════════════════════════════════════════════════
 //  MAIN LOOP
 // ═══════════════════════════════════════════════════
-// ── Optimisation caches ────────────────────────────────────────────────────
-let _ixRoadsKey='', _ixCache=[];
-function getCachedIntersections(){
-  const key=roads.map(r=>r.typeId+r.waypoints.length).join('|');
-  if(key!==_ixRoadsKey){_ixRoadsKey=key;_ixCache=computeIntersections(roads);}
-  return _ixCache;
-}
-function invalidateIntersections(){_ixRoadsKey='';}
-
-function roadInView(road){
-  const hw=getRoadType(road.typeId).totalWidth/2+80;
-  const vx0=camX-W/2/zoom,vy0=camY-H/2/zoom;
-  const vx1=camX+W/2/zoom,vy1=camY+H/2/zoom;
-  for(const wp of road.waypoints){
-    if(wp.x+hw>vx0&&wp.x-hw<vx1&&wp.y+hw>vy0&&wp.y-hw<vy1)return true;
-  }
-  return false;
-}
-
 function loop(){
   const speed=(keys['Shift']?14:5)/zoom;
   if(keys['w']||keys['ArrowUp'])   camY-=speed;
@@ -1589,16 +1570,15 @@ function loop(){
   ctx.translate(W/2-camX*zoom,H/2-camY*zoom);
   ctx.scale(zoom,zoom);
 
-  const intersections=getCachedIntersections();
-  const visibleRoads=roads.filter(roadInView);
+  const intersections=computeIntersections(roads);
 
   drawParks();
 
   // Pass 1 — surfaces
-  visibleRoads.forEach(r=>drawRoadBase(r));
+  roads.forEach(r=>drawRoadBase(r));
 
   // Pass 2 — decorations
-  visibleRoads.forEach(r=>drawRoadDecorations(r));
+  roads.forEach(r=>drawRoadDecorations(r));
 
   // Pass 3 — intersection patches
   const patchedPairs=new Set();
@@ -1607,7 +1587,6 @@ function loop(){
     const key=Math.min(idxA,idxB)+'-'+Math.max(idxA,idxB);
     if(patchedPairs.has(key))return;
     patchedPairs.add(key);
-    if(!visibleRoads.includes(ix.roadA)&&!visibleRoads.includes(ix.roadB))return;
     ctx.save();
     buildBodyClip(ix.roadA,0.5);ctx.clip();
     buildBodyClip(ix.roadB,0.5);ctx.clip();
@@ -1617,7 +1596,7 @@ function loop(){
 
   // Pass 4 — labels
   placedLabels=[];
-  visibleRoads.forEach(r=>drawRoadLabel(r));
+  roads.forEach(r=>drawRoadLabel(r));
 
   drawBuildOverlay();
   ctx.restore();
