@@ -1565,7 +1565,7 @@ function getCachedIntersections(){
 function invalidateIntersections(){_ixRoadsKey='';}
 
 function roadInView(road){
-  const hw=getRoadType(road.typeId).totalWidth/2+20;
+  const hw=getRoadType(road.typeId).totalWidth/2+80;
   const vx0=camX-W/2/zoom,vy0=camY-H/2/zoom;
   const vx1=camX+W/2/zoom,vy1=camY+H/2/zoom;
   for(const wp of road.waypoints){
